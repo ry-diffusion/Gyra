@@ -1,0 +1,24 @@
+[package]
+name = "gyra"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.14.0", features = ["dynamic_linking", "wayland"] }
+bevy_cosmic_edit = "0.23.0"
+crossbeam-channel = "0.5.13"
+directories = "5.0.1"
+flate2 = { version = "1.0.33", default-features = false, features = ["zlib-ng"] }
+gyra-codec = { version = "0.1.0", path = "crates/gyra-codec" }
+gyra-macros = { version = "0.1.0", path = "crates/gyra-macros" }
+hickory-resolver = { version = "0.24.1", default-features = false, features = [
+    "tokio-runtime",
+] }
+log = "0.4.22"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+thiserror = "1.0.63"
+toml = "0.8.19"
+
+[workspace]
+members = ["crates/gyra-codec", "crates/gyra-macros"]
