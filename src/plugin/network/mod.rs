@@ -68,17 +68,18 @@ fn receive_packets(mut world: ResMut<NetworkTransport>, mut tx: EventWriter<Down
             tx.send(DownloadInfo::LoginRequest);
         }
 
-        When::Login => match world.poll_packet() {
-            Ok(packet) => {
-                tx.send(DownloadInfo::Packet(packet));
-            }
-            e => {
-                log::error!("Error receiving packet: {e:?}");
-            }
-        },
-
-        When::Play => {
-            for _ in 0..200 {
+        // When::Login => match world.poll_packet() {
+        //     Ok(packet) => {
+        //         tx.send(DownloadInfo::Packet(packet));
+        //     }
+        //     e => {
+        //         log::error!("Error receiving packet: {e:?}");
+        //     }
+        // },
+        When::Login | When::Play => {
+            let mut used = 0;
+            for i in 0..200 {
+                used = i;
                 match world.poll_packet() {
                     Ok(packet) => {
                         tx.send(DownloadInfo::Packet(packet));
@@ -95,6 +96,12 @@ fn receive_packets(mut world: ResMut<NetworkTransport>, mut tx: EventWriter<Down
                         break;
                     }
                 }
+            }
+
+            if used == 200 {
+                log::warn!(
+                    "Server handler is overloaded. Waiting for next update to receive new packets!"
+                );
             }
         }
         When::Status => {
@@ -128,6 +135,20 @@ fn packet_handler(
                         info!("Received {msg:?}");
                         server_message_writer.send(ServerMessage::ChatMessage {
                             message: msg.content.clone(),
+                        });
+                    }
+
+                    Proto::LoginDisconnect(dis) => {
+                        info!("Received {dis:?}");
+                        server_message_writer.send(ServerMessage::DisconnectedOnLogin {
+                            why: dis.reason.clone(),
+                        });
+                    }
+
+                    Proto::Disconnect(dis) => {
+                        info!("Received {dis:?}");
+                        server_message_writer.send(ServerMessage::Disconnected {
+                            why: dis.reason.clone(),
                         });
                     }
 

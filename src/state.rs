@@ -6,6 +6,6 @@ pub enum AppState {
     Lobby,
 
     Connecting,
-
+    
     Playing,
 }

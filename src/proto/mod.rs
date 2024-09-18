@@ -6,7 +6,7 @@ mod status_request;
 mod status_response;
 
 pub use handshake::*;
-pub use login::*;
+pub use login::{Disconnect as LoginDisconnect, LoginStart, LoginSuccess, SetCompression};
 pub use ping_pong::*;
 pub use status_request::*;
 pub use status_response::*;
@@ -23,18 +23,18 @@ macro_rules! mk_proto {
 
         impl $name {
           #[inline]
-          pub fn decode<R: std::io::Read>(packet_id: gyra_codec::packet::PacketId, when: gyra_codec::packet::When, reader: &mut R) -> crate::error::Result<Self> {
+          pub fn decode(packet_id: gyra_codec::packet::PacketId, when: gyra_codec::packet::When, direction: gyra_codec::packet::Direction, reader: &mut impl std::io::Read) -> crate::error::Result<Self> {
               use gyra_codec::coding::Decoder;
               use gyra_codec::packet::Packet;
 
               #[allow(unused_variables, unreachable_patterns)]
-              match (packet_id, when) {
-                  $(($packet::ID, $packet::WHEN) => {
+              match (packet_id, when, direction) {
+                  $(($packet::ID, $packet::WHEN, $packet::DIRECTION) => {
                       let packet = $packet::decode(reader)?;
                       Ok(Proto::$packet(packet))
                   })*
 
-                  (id, when) => Err(crate::error::Error::IllegalPacket(id, when))
+                  (id, when, direction) => Err(crate::error::Error::IllegalPacket(id, when))
               }
           }
 
@@ -66,4 +66,4 @@ macro_rules! mk_proto {
 
 mk_proto!(Proto => PingPong, StatusRequest, StatusResponse, Handshake,
     LoginStart, LoginSuccess, SetCompression, KeepAlive, JoinGame, ChatMessage,
-    EntityRelativeMove, Entity, Disconnect);
+    EntityRelativeMove, Entity, Disconnect, LoginDisconnect);

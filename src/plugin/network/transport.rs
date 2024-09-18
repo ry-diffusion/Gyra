@@ -6,9 +6,9 @@ use bevy::prelude::Resource;
 use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use gyra_codec::coding::{Decoder, Encoder};
-use gyra_codec::packet::{Packet, PacketId, When};
+use gyra_codec::packet::{Direction, Packet, PacketId, When};
 use gyra_codec::variadic_int::VarInt;
-use log::{info, warn};
+use log::{debug, info, warn};
 use std::io::{self, BufReader, Cursor, Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::os::fd::AsFd;
@@ -79,20 +79,20 @@ impl NetworkTransport {
     fn poll_uncompressed_packet(cursor: &mut impl Read, state: When) -> error::Result<Proto> {
         let packet_id = VarInt::decode(cursor)?.0;
 
-        info!("Received packet id: 0x{packet_id:02X?}");
+        debug!("Received packet id: 0x{packet_id:02X?}");
 
-        Proto::decode(packet_id as _, state, cursor)
+        Proto::decode(packet_id as _, state, Direction::ToClient, cursor)
     }
 
     fn poll_compressed_packet(cursor: &mut impl Read, state: When) -> error::Result<Proto> {
         let uncompressed_size = VarInt::decode(cursor)?.0;
 
         if 0 == uncompressed_size {
-            info!("Received uncompressed packet of length: 0");
+            debug!("Received uncompressed packet of length: 0");
             return Self::poll_uncompressed_packet(cursor, state);
         }
 
-        info!("Received compressed packet of length: {uncompressed_size}");
+        debug!("Received compressed packet of length: {uncompressed_size}");
 
         let mut decoder = ZlibDecoder::new(cursor);
 
@@ -101,7 +101,7 @@ impl NetworkTransport {
 
     pub fn poll_packet(&mut self) -> error::Result<Proto> {
         let length = VarInt::decode(&mut self.stream)?.0;
-        info!("Received packet of length: {length:?}");
+        debug!("Received packet of length: {length:?}");
 
         let mut buff = vec![0; length as usize];
         self.stream.read_exact(&mut buff)?;

@@ -1,5 +1,6 @@
 extern crate proc_macro;
 
+use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::{parse_macro_input, ItemStruct, LitInt};
@@ -69,12 +70,14 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 struct PacketArgs {
     pub id: u32,
     pub when: syn::Ident,
+    pub direction: TokenStream
 }
 
 impl Parse for PacketArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut packet_id: Option<LitInt> = None;
         let mut when_id: Option<syn::Ident> = None;
+        let mut direction = quote! {ToClient};
 
         while !input.is_empty() {
             let lookahead = input.lookahead1();
@@ -90,6 +93,9 @@ impl Parse for PacketArgs {
                     let when = input.parse::<syn::Ident>()?;
                     when_id = Some(when);
                 }
+                if ident == "server" {
+                   direction = quote! {ToServer}; 
+                }
             } else {
                 let _ = input.parse::<proc_macro2::TokenTree>();
             }
@@ -102,6 +108,7 @@ impl Parse for PacketArgs {
             ))
         } else {
             Ok(PacketArgs {
+                direction,
                 id: packet_id
                     .unwrap()
                     .base10_parse()
@@ -130,6 +137,7 @@ pub fn packet(
 
     let packet_id = dbg!(args.id);
     let when = args.when;
+    let direction = args.direction;
 
     quote! {
         #item_struct
@@ -137,14 +145,7 @@ pub fn packet(
         impl gyra_codec::packet::Packet for #ident {
             const ID: gyra_codec::packet::PacketId = #packet_id;
             const WHEN: gyra_codec::packet::When = gyra_codec::packet::When::#when;
-
-            fn id(&self) -> u32 {
-                #packet_id
-            }
-
-            fn when(&self) -> gyra_codec::packet::When {
-                gyra_codec::packet::When::#when
-            }
+            const DIRECTION: gyra_codec::packet::Direction = gyra_codec::packet::Direction::#direction;
         }
     }
     .into()

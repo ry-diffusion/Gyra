@@ -1,14 +1,11 @@
 use bevy::prelude::*;
 use gyra_codec::packet::When;
 
+use crate::message::ServerMessage;
 use crate::plugin::network::transport::NetworkTransport;
-use crate::plugin::{ChangedState, ErrorFound};
-use crate::proto::SetCompression;
-use crate::{
-    proto::{LoginSuccess, Proto},
-    resources::{CurrentServerAddress, PlayerAccount},
-    state::AppState,
-};
+use crate::plugin::{ChangedState, ChatComponent, ErrorFound};
+use crate::resources::DisconnectedReason;
+use crate::{resources::CurrentServerAddress, state::AppState};
 
 pub struct ConnectingPlugin;
 
@@ -23,6 +20,10 @@ impl Plugin for ConnectingPlugin {
         app.add_systems(OnEnter(AppState::Connecting), startup)
             .add_systems(Update, update_status.run_if(in_state(AppState::Connecting)))
             .add_systems(Update, handle_error.run_if(in_state(AppState::Connecting)))
+            .add_systems(
+                Update,
+                handle_server_messages.run_if(in_state(AppState::Connecting)),
+            )
             .add_systems(OnExit(AppState::Connecting), cleanup);
     }
 }
@@ -116,5 +117,25 @@ fn handle_error(
 fn cleanup(query: Query<Entity, With<ConnectingUI>>, mut commands: Commands) {
     for e in query.iter() {
         commands.entity(e).despawn_recursive();
+    }
+}
+
+fn handle_server_messages(
+    mut server_reader: EventReader<ServerMessage>,
+    mut commands: Commands,
+    mut app_state: ResMut<NextState<AppState>>,
+) {
+    for message in server_reader.read() {
+        match message {
+            ServerMessage::DisconnectedOnLogin { why } => {
+                commands.insert_resource(DisconnectedReason { why: why.clone() });
+                commands.remove_resource::<NetworkTransport>();
+                app_state.set(AppState::Lobby);
+            }
+
+            msg => {
+                warn!("Unexpected message: {msg:?}");
+            }
+        }
     }
 }

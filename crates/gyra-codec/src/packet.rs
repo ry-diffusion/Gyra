@@ -10,6 +10,12 @@ pub enum When {
     Handshake,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Direction {
+    ToServer, // "ServerBound" 
+    ToClient, // "ClientBound"
+}
+
 impl Display for When {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
@@ -19,14 +25,24 @@ impl Display for When {
             When::Handshake => "handshaking".to_string(),
         };
 
-        write!(f, "{}", str)
+        write!(f, "{str}")
     }
 }
 
 pub trait Packet: Encoder + Decoder + Sized {
     const ID: PacketId;
     const WHEN: When;
+    const DIRECTION: Direction = Direction::ToClient;
 
-    fn id(&self) -> PacketId;
-    fn when(&self) -> When;
+    fn id(&self) -> PacketId {
+        Self::ID
+    }
+    
+    fn when(&self) -> When {
+        Self::WHEN
+    }
+    
+    fn direction(&self) -> Direction {
+        Self::DIRECTION
+    }
 }

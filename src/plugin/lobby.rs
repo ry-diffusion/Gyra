@@ -10,6 +10,7 @@ use bevy_cosmic_edit::{
 };
 use serde_json::Value;
 
+use crate::resources::DisconnectedReason;
 use crate::{
     components::MainCamera,
     net::query::QueryClient,
@@ -76,6 +77,7 @@ pub fn lobby_startup(
     mut font_system: ResMut<CosmicFontSystem>,
     account: Res<PlayerAccount>,
     current_server: Res<CurrentServerAddress>,
+    disconnect_reason: Option<Res<DisconnectedReason>>,
 ) {
     let attrs = Attrs::new().color(bevy::color::palettes::basic::GRAY.to_cosmic());
 
@@ -130,6 +132,26 @@ pub fn lobby_startup(
             ..default()
         })
         .with_children(|parent| {
+            if let Some(reason) = disconnect_reason {
+                parent
+                    .spawn(TextBundle {
+                        style: Style {
+                            align_self: AlignSelf::Center,
+                            justify_content: JustifyContent::Center,
+                            ..default()
+                        },
+                        text: Text::from_section(
+                            format!("Got disconnected: {}", reason.why),
+                            TextStyle {
+                                color: Color::Srgba(bevy::color::palettes::tailwind::RED_500),
+                                font_size: 24.0,
+                                ..Default::default()
+                            },
+                        ),
+                        ..default()
+                    });
+            }
+
             parent
                 .spawn(TextBundle {
                     style: Style {

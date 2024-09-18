@@ -1,10 +1,18 @@
 use bevy::prelude::Event;
 use crate::proto;
 
-#[derive(Event)]
+#[derive(Event, Debug)]
 pub enum ServerMessage {
     GameReady {
         base: proto::JoinGame,
+    },
+    
+    Disconnected {
+        why: String,
+    },
+    
+    DisconnectedOnLogin {
+        why: String,
     },
 
     ChatMessage {
