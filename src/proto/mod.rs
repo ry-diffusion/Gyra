@@ -66,4 +66,4 @@ macro_rules! mk_proto {
 
 mk_proto!(Proto => PingPong, StatusRequest, StatusResponse, Handshake,
     LoginStart, LoginSuccess, SetCompression, KeepAlive, JoinGame, ChatMessage,
-    EntityRelativeMove, Entity, Disconnect, LoginDisconnect);
+    EntityRelativeMove, Entity, Disconnect, LoginDisconnect, SendChatMessage);

@@ -2,7 +2,7 @@ use crate::error::Error;
 use crate::message::{ClientMessage, ServerMessage};
 use crate::net::put;
 use crate::plugin::transport::NetworkTransport;
-use crate::proto::Proto;
+use crate::proto::{Proto, SendChatMessage};
 use crate::resources::PlayerAccount;
 use bevy::app::RunFixedMainLoop;
 use bevy::prelude::*;
@@ -48,6 +48,10 @@ impl Plugin for NetworkPlugin {
             )
             .add_systems(
                 FixedUpdate,
+                handle_client_messages.run_if(resource_exists::<NetworkTransport>),
+            )
+            .add_systems(
+                FixedUpdate,
                 packet_handler
                     .run_if(resource_exists::<NetworkTransport>)
                     .after(receive_packets),
@@ -68,14 +72,6 @@ fn receive_packets(mut world: ResMut<NetworkTransport>, mut tx: EventWriter<Down
             tx.send(DownloadInfo::LoginRequest);
         }
 
-        // When::Login => match world.poll_packet() {
-        //     Ok(packet) => {
-        //         tx.send(DownloadInfo::Packet(packet));
-        //     }
-        //     e => {
-        //         log::error!("Error receiving packet: {e:?}");
-        //     }
-        // },
         When::Login | When::Play => {
             let mut used = 0;
             for i in 0..200 {
@@ -190,10 +186,36 @@ fn packet_handler(
 }
 
 fn packet_writer(mut world: ResMut<NetworkTransport>, mut packets: EventReader<UploadPacket>) {
+    let threshold = world.server_compress_threshold;
+
     for payload in packets.read() {
         info!("[Client->Server] Sending packet {:?}", payload.packet);
-        // let threshold = world.server_compress_threshold;
-        let threshold = None;
         payload.packet.put(&mut world.stream, threshold).unwrap()
+    }
+}
+
+fn handle_client_messages(
+    mut client_reader: EventReader<ClientMessage>,
+    mut packet_writer: EventWriter<UploadPacket>,
+) {
+    for message in client_reader.read() {
+        match message {
+            ClientMessage::ChatMessage { message } => {
+                let mut message = message.trim().to_string();
+                
+                if message.len() > 100 {
+                    log::warn!("Chat message too long! Truncating to 100 characters.");
+                    message = message.chars().take(100).collect();
+                }
+                
+                let chat_message = Proto::SendChatMessage(SendChatMessage {
+                    content: message.to_owned(),
+                });
+
+                packet_writer.send(UploadPacket {
+                    packet: chat_message,
+                });
+            }
+        }
     }
 }

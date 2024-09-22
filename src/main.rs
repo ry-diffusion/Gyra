@@ -1,12 +1,13 @@
 mod components;
 mod error;
+mod message;
 mod net;
 mod plugin;
 mod proto;
 mod resources;
 mod state;
-mod message;
 
+use crate::plugin::{NetworkPlugin, PlayPlugin};
 use bevy::{
     prelude::*,
     render::{
@@ -14,11 +15,10 @@ use bevy::{
         RenderPlugin,
     },
 };
-
+use bevy_cosmic_edit::CosmicFontSystem;
 use components::MainCamera;
 use plugin::{ConnectingPlugin, LobbyPlugin, SettingsPlugin};
 use state::AppState;
-use crate::plugin::{NetworkPlugin, PlayPlugin};
 
 const SKY_COLOR: Color = Color::srgb(0.69, 0.69, 0.69);
 
@@ -54,8 +54,11 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(
+    mut commands: Commands,
+) {
     log::info!("Welcome to Gyra!");
+
     commands
         .spawn(Camera3dBundle { ..default() })
         .insert(MainCamera);

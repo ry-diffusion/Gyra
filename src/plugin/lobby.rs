@@ -289,7 +289,7 @@ fn server_info_gather(
         }
 
         if *addr != current_addr {
-            trace!("retaing task for {addr}");
+            trace!("retain task for {addr}");
             to_drop.push(addr.clone());
         }
     }
