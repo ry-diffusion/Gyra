@@ -8,9 +8,6 @@ pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("Illegal packet: 0x{0:02X} on {1:?}")]
-    IllegalPacket(PacketId, When),
-
     #[error("NetworkThread Send error")]
     SendError,
 

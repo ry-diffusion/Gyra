@@ -263,7 +263,7 @@ pub fn handle_new_chat_messages(
     }
 }
 
-pub fn chat_plugin(app: &mut App) {
+pub fn plugin(app: &mut App) {
     app.add_event::<NewRawChatMessage>()
         .add_event::<ChatMessage>()
         .add_systems(OnEnter(AppState::Playing), (startup, spawn_renderer))

@@ -1,5 +1,5 @@
 use bevy::prelude::Event;
-use crate::proto;
+use gyra_proto::network as proto;
 
 #[derive(Event, Debug)]
 pub enum ServerMessage {
@@ -24,5 +24,11 @@ pub enum ServerMessage {
 pub enum ClientMessage {
     ChatMessage {
         message: String
-    }
+    },
+    
+    Look {
+        yaw: f32,
+        pitch: f32,
+        on_ground: bool,
+    },
 }

@@ -1,20 +1,17 @@
 use crate::error;
-use crate::error::Error;
-use crate::net::{put, put_uncompressed, resolve};
-use crate::proto::{Handshake, LoginStart, Proto};
+use gyra_proto::network::{put, put_uncompressed};
+use gyra_proto::network::{Handshake, LoginStart, Proto};
 use bevy::prelude::Resource;
 use flate2::read::ZlibDecoder;
-use flate2::write::ZlibEncoder;
 use gyra_codec::coding::{Decoder, Encoder};
 use gyra_codec::packet::{Direction, Packet, PacketId, When};
 use gyra_codec::variadic_int::VarInt;
 use log::{debug, info, warn};
-use std::io::{self, BufReader, Cursor, Read, Write};
+use std::io::{self, Cursor, Read, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::os::fd::AsFd;
-use std::sync::mpsc::{sync_channel, Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::{Mutex};
 use std::time::Duration;
+use crate::net::resolve;
 
 pub struct TrackedReader<R: Read> {
     reader: R,
@@ -81,7 +78,7 @@ impl NetworkTransport {
 
         debug!("Received packet id: 0x{packet_id:02X?}");
 
-        Proto::decode(packet_id as _, state, Direction::ToClient, cursor)
+        Proto::decode(packet_id as _, state, Direction::ToClient, cursor).map_err(Into::into)
     }
 
     fn poll_compressed_packet(cursor: &mut impl Read, state: When) -> error::Result<Proto> {
@@ -129,33 +126,4 @@ impl NetworkTransport {
 
         Ok(Self::new(stream, addr))
     }
-}
-
-#[test]
-fn test_decompress_join_game() {
-    use crate::proto::JoinGame;
-
-    let packet = JoinGame {
-        entity_id: 0,
-        max_players: 12,
-        game_mode: 0,
-        dimension: 0,
-        difficulty: 0,
-        level_type: "default".to_string(),
-        reduced_debug_info: false,
-    };
-
-    let mut buffer = vec![];
-
-    put_uncompressed(&mut buffer, &packet).unwrap();
-
-    let mut buffer = buffer.as_slice();
-
-    let mut pkt_size = VarInt::decode(&mut buffer).unwrap();
-    assert_eq!(pkt_size.0, buffer.len() as i32, "Packet size mismatch");
-    //
-    // let pkt = NetworkTransport::poll_uncompressed_packet(When::Play, &mut buffer, pkt_size.0 as _)
-    //     .unwrap();
-    //
-    // assert_eq!(pkt, Proto::JoinGame(packet));
 }

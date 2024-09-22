@@ -1,4 +1,5 @@
 use thiserror::Error;
+use crate::packet::{PacketId, When};
 
 #[derive(Error, Debug)]
 pub enum VarIntError {
@@ -21,6 +22,9 @@ pub enum CodecError {
 
         source: Box<CodecError>,
     },
+
+    #[error("Illegal packet: 0x{0:02X} on {1:?}")]
+    IllegalPacket(PacketId, When),
 }
 
 pub type Result<T> = std::result::Result<T, CodecError>;

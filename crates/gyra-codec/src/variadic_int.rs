@@ -13,7 +13,7 @@ impl From<i32> for VarInt {
 
 impl From<u32> for VarInt {
     fn from(value: u32) -> Self {
-        VarInt { 0: value as i32 }
+        VarInt(value as i32)
     }
 }
 
@@ -56,7 +56,6 @@ impl Decoder for VarInt {
             val |= (b & PART) << (size * 7);
             size += 1;
             if size > 5 {
-                // return Err(Error::Err("VarInt too big".to_owned()));
                 return Err(CodecError::VarInt(VarIntError::TooBig));
             }
             if (b & 0x80) == 0 {
@@ -79,7 +78,7 @@ impl Encoder for VarInt {
                 temp |= 0b1000_0000;
             }
 
-            writer.write(&[temp])?;
+            writer.write_all(&[temp])?;
 
             i += 1;
             if x == 0 {

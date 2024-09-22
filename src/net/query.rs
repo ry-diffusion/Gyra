@@ -1,12 +1,12 @@
-use crate::net::packet::{put, put_uncompressed};
 use crate::net::resolvers::resolve;
-use crate::proto::{Handshake, PingPong, StatusRequest, StatusResponse};
+use gyra_proto::network::{Handshake, PingPong, StatusRequest, StatusResponse};
 use gyra_codec::coding::Decoder;
 use gyra_codec::variadic_int::VarInt;
 use log::{info, trace};
 use std::io;
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
+use gyra_proto::network::put_uncompressed;
 
 #[derive(Debug, Clone)]
 pub struct QueryStatus {

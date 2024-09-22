@@ -5,6 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/gyra-codec/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/gyra-macros/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/gyra-proto/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

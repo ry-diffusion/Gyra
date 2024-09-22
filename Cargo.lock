@@ -2421,6 +2421,7 @@ dependencies = [
  "flate2",
  "gyra-codec",
  "gyra-macros",
+ "gyra-proto",
  "hickory-resolver",
  "log",
  "serde",
@@ -2443,6 +2444,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.77",
+]
+
+[[package]]
+name = "gyra-proto"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "gyra-codec",
+ "gyra-macros",
+ "log",
 ]
 
 [[package]]

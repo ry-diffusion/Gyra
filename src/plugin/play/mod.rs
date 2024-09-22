@@ -1,13 +1,15 @@
 use crate::message::{ClientMessage, ServerMessage};
 use crate::plugin::play::chat::ChatComponent;
 use crate::plugin::transport::NetworkTransport;
-use crate::proto::Proto;
+use crate::plugin::{CursorState};
+use gyra_proto::network::Proto;
 use crate::resources::DisconnectedReason;
 use crate::state::AppState;
 use bevy::prelude::*;
 
 mod chat;
 mod chat_proto;
+mod player;
 
 pub struct PlayPlugin;
 
@@ -21,13 +23,19 @@ impl Plugin for PlayPlugin {
                     chat_message_sender.run_if(in_state(AppState::Playing)),
                 ),
             )
-            .add_plugins(chat::chat_plugin)
+            .add_plugins(chat::plugin)
+            .add_plugins(player::plugin)
             .add_systems(OnExit(AppState::Playing), cleanup);
     }
 }
 
-pub fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn startup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut cursor_state: ResMut<CursorState>,
+) {
     info!("Play!");
+    cursor_state.is_locked = true;
 }
 
 pub fn chat_message_sender(

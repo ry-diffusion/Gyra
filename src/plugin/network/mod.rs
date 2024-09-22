@@ -1,13 +1,12 @@
 use crate::error::Error;
 use crate::message::{ClientMessage, ServerMessage};
-use crate::net::put;
 use crate::plugin::transport::NetworkTransport;
-use crate::proto::{Proto, SendChatMessage};
 use crate::resources::PlayerAccount;
 use bevy::app::RunFixedMainLoop;
 use bevy::prelude::*;
 use gyra_codec::error::CodecError;
 use gyra_codec::packet::{Packet, When};
+use gyra_proto::network::{put, PlayerLook, Proto, SendChatMessage};
 
 pub mod transport;
 
@@ -172,6 +171,52 @@ fn packet_handler(
                         tx.send(UploadPacket { packet: keep_alive });
                     }
 
+                    Proto::MapChunkBulk(bulk) => {
+                        for metadata in &bulk.chunk_metadata {
+                            info!(
+                                "Received metadata for x: {}, y: {}",
+                                metadata.x * 16,
+                                metadata.z * 16
+                            );
+                        }
+
+                        for section in &bulk.sections {
+                            for x in 0..16 {
+                                for y in 0..16 {
+                                    for z in 0..16 {
+                                        let block_id = section.block_id(x, y, z);
+                                        if 0 != block_id {
+                                            info!("[ChunkData] Block at {x}, {y}, {z} is {block_id}");
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Proto::ChunkData(chunk_data) => {
+                        info!(
+                            "Received ChunkData packet for x: {}, y: {}",
+                            chunk_data.x * 16,
+                            chunk_data.z * 16
+                        );
+
+                        for section in &chunk_data.sections {
+                            for x in 0..16 {
+                                for y in 0..16 {
+                                    for z in 0..16 {
+                                        let block_id = section.block_id(x, y, z);
+                                        if 0 != block_id {
+                                            info!(
+                                                "[ChunkData] Block at {x}, {y}, {z} is {block_id}"
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Proto::Disconnect(packet) => {
                     //     info!("Received Disconnect packet: {packet:?}");
                     //     error_writer.send(ErrorFound { why: packet.reason });
@@ -189,8 +234,9 @@ fn packet_writer(mut world: ResMut<NetworkTransport>, mut packets: EventReader<U
     let threshold = world.server_compress_threshold;
 
     for payload in packets.read() {
-        info!("[Client->Server] Sending packet {:?}", payload.packet);
-        payload.packet.put(&mut world.stream, threshold).unwrap()
+        debug!("[Client->Server] Sending packet {:?}", payload.packet);
+        let wrote_size = payload.packet.put(&mut world.stream, threshold).unwrap();
+        debug!("Wrote {wrote_size} bytes to server!");
     }
 }
 
@@ -200,14 +246,28 @@ fn handle_client_messages(
 ) {
     for message in client_reader.read() {
         match message {
+            ClientMessage::Look {
+                yaw,
+                pitch,
+                on_ground,
+            } => {
+                let look = Proto::PlayerLook(PlayerLook {
+                    yaw: *yaw,
+                    pitch: *pitch,
+                    on_ground: *on_ground,
+                });
+
+                packet_writer.send(UploadPacket { packet: look });
+            }
+
             ClientMessage::ChatMessage { message } => {
                 let mut message = message.trim().to_string();
-                
+
                 if message.len() > 100 {
                     log::warn!("Chat message too long! Truncating to 100 characters.");
                     message = message.chars().take(100).collect();
                 }
-                
+
                 let chat_message = Proto::SendChatMessage(SendChatMessage {
                     content: message.to_owned(),
                 });

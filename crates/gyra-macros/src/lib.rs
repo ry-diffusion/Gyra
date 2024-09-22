@@ -70,7 +70,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 struct PacketArgs {
     pub id: u32,
     pub when: syn::Ident,
-    pub direction: TokenStream
+    pub direction: TokenStream,
 }
 
 impl Parse for PacketArgs {
@@ -94,27 +94,27 @@ impl Parse for PacketArgs {
                     when_id = Some(when);
                 }
                 if ident == "server" {
-                   direction = quote! {ToServer}; 
+                    direction = quote! {ToServer};
                 }
             } else {
                 let _ = input.parse::<proc_macro2::TokenTree>();
             }
         }
 
-        if packet_id.is_none() || when_id.is_none() {
-            Err(syn::Error::new(
+        match (packet_id, when_id) {
+            (None, _) => Err(syn::Error::new(
                 input.span(),
                 "Packet attribute requires an id",
-            ))
-        } else {
-            Ok(PacketArgs {
+            )),
+            (_, None) => Err(syn::Error::new(
+                input.span(),
+                "Packet attribute requires a when",
+            )),
+            (Some(packet_id), Some(when_id)) => Ok(PacketArgs {
                 direction,
-                id: packet_id
-                    .unwrap()
-                    .base10_parse()
-                    .expect("i expect a number"),
-                when: when_id.unwrap(),
-            })
+                id: packet_id.base10_parse().expect("i expect a number"),
+                when: when_id,
+            }),
         }
     }
 }
@@ -135,7 +135,7 @@ pub fn packet(
     let item_struct = parse_macro_input!(input as ItemStruct);
     let ident = item_struct.ident.clone();
 
-    let packet_id = dbg!(args.id);
+    let packet_id = args.id;
     let when = args.when;
     let direction = args.direction;
 
@@ -147,6 +147,5 @@ pub fn packet(
             const WHEN: gyra_codec::packet::When = gyra_codec::packet::When::#when;
             const DIRECTION: gyra_codec::packet::Direction = gyra_codec::packet::Direction::#direction;
         }
-    }
-    .into()
+    }.into()
 }

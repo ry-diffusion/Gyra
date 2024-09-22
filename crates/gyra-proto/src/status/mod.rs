@@ -7,9 +7,6 @@ pub struct PingPong {
 }
 
 impl PingPong {
-    pub fn new(payload: i64) -> Self {
-        Self { payload }
-    }
     pub fn now() -> Self {
         let payload = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -18,4 +15,15 @@ impl PingPong {
 
         Self { payload }
     }
+}
+
+#[derive(Debug, Clone, gyra_macros::CodecDecode, gyra_macros::CodecEncode, PartialEq)]
+#[packet(id: 0x00, when: Status)]
+pub struct StatusRequest;
+
+
+#[derive(Debug, Clone, gyra_macros::CodecDecode, gyra_macros::CodecEncode, PartialEq)]
+#[packet(id: 0x00, when: Status)]
+pub struct StatusResponse {
+    pub json_response: String,
 }

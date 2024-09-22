@@ -23,7 +23,7 @@ macro_rules! impl_int {
 
             impl Encoder for $t {
                 fn encode<W: Write>(&self, writer: &mut W) -> Result<usize> {
-                    writer.write(&self.to_be_bytes())?;
+                    writer.write_all(&self.to_be_bytes())?;
                     Ok(std::mem::size_of::<$t>())
                 }
             }
@@ -33,12 +33,13 @@ macro_rules! impl_int {
 
 impl_int!(i8, i16, i32, i64);
 impl_int!(u8, u16, u32, u64);
+impl_int!(f32 /* float */, f64 /* double */);
 
 impl Encoder for String {
     fn encode<W: Write>(&self, writer: &mut W) -> Result<usize> {
         let bytes = self.as_bytes();
         let len = VarInt(bytes.len() as i32).encode(writer)?;
-        writer.write(bytes)?;
+        writer.write_all(bytes)?;
         Ok(len + bytes.len())
     }
 }
@@ -54,7 +55,7 @@ impl Decoder for String {
 
 impl Encoder for bool {
     fn encode<W: Write>(&self, writer: &mut W) -> Result<usize> {
-        writer.write(&[*self as u8])?;
+        writer.write_all(&[*self as u8])?;
         Ok(1)
     }
 }
