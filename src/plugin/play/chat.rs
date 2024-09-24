@@ -1,9 +1,8 @@
-use std::time::Duration;
 use crate::plugin::play::chat_proto;
 use crate::state::AppState;
-use bevy::a11y::accesskit::TextPosition;
 use bevy::prelude::*;
 use bevy_cosmic_edit::*;
+use std::time::Duration;
 
 #[derive(Event, Debug)]
 pub struct NewRawChatMessage {
@@ -31,7 +30,7 @@ pub struct ChatBuffer {
 
 #[derive(Component)]
 pub struct ChatEditor {
-    pub timer: Timer
+    pub timer: Timer,
 }
 
 #[derive(Component)]
@@ -219,7 +218,7 @@ pub fn handle_buffered_text(
         editor.timer.tick(time.delta());
         if editor.timer.finished() {
             editor.timer.reset();
-            
+
             if !chat_buffer.shown_buffer.is_empty() {
                 let dropped = chat_buffer.shown_buffer.remove(0);
                 chat_buffer.buffer.push(dropped);

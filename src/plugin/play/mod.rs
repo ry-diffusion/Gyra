@@ -58,6 +58,8 @@ fn handle_server_messages(
     for message in server_reader.read() {
         match message {
             ServerMessage::DisconnectedOnLogin { why: _ } => {}
+            ServerMessage::NewChunk { chunk } => {
+            }
 
             ServerMessage::GameReady { base } => {
                 info!("Game is ready!");

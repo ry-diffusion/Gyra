@@ -14,4 +14,4 @@ pub use entities::*;
 pub use disconnect::*;
 pub use movement::*;
 pub use chunk_data::ChunkData;
-pub use map_chunk_bulk::MapChunkBulk;
+pub use map_chunk_bulk::{MapChunkBulk, ChunkMetadata};

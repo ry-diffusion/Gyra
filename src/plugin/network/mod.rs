@@ -2,11 +2,11 @@ use crate::error::Error;
 use crate::message::{ClientMessage, ServerMessage};
 use crate::plugin::transport::NetworkTransport;
 use crate::resources::PlayerAccount;
-use bevy::app::RunFixedMainLoop;
 use bevy::prelude::*;
 use gyra_codec::error::CodecError;
 use gyra_codec::packet::{Packet, When};
 use gyra_proto::network::{put, PlayerLook, Proto, SendChatMessage};
+use gyra_proto::smp;
 
 pub mod transport;
 
@@ -109,7 +109,7 @@ fn packet_handler(
     mut world: ResMut<NetworkTransport>,
     mut changed_state_writer: EventWriter<ChangedState>,
     // mut error_writer: EventWriter<ErrorFound>,
-    mut player_account: Res<PlayerAccount>,
+    player_account: Res<PlayerAccount>,
     mut rx: EventReader<DownloadInfo>,
     mut tx: EventWriter<UploadPacket>,
     mut server_message_writer: EventWriter<ServerMessage>,
@@ -172,26 +172,15 @@ fn packet_handler(
                     }
 
                     Proto::MapChunkBulk(bulk) => {
-                        for metadata in &bulk.chunk_metadata {
-                            info!(
-                                "Received metadata for x: {}, y: {}",
-                                metadata.x * 16,
-                                metadata.z * 16
-                            );
-                        }
-
-                        for section in &bulk.sections {
-                            for x in 0..16 {
-                                for y in 0..16 {
-                                    for z in 0..16 {
-                                        let block_id = section.block_id(x, y, z);
-                                        if 0 != block_id {
-                                            info!("[ChunkData] Block at {x}, {y}, {z} is {block_id}");
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        let chunk = smp::Chunk::from_sections_metadata(
+                            bulk.sections.clone(),
+                            bulk.chunk_metadata.clone(),
+                            bulk.chunk_column_sent.0,
+                        );
+                    
+                        server_message_writer.send(ServerMessage::NewChunk {
+                            chunk,
+                        });
                     }
 
                     Proto::ChunkData(chunk_data) => {
@@ -200,21 +189,6 @@ fn packet_handler(
                             chunk_data.x * 16,
                             chunk_data.z * 16
                         );
-
-                        for section in &chunk_data.sections {
-                            for x in 0..16 {
-                                for y in 0..16 {
-                                    for z in 0..16 {
-                                        let block_id = section.block_id(x, y, z);
-                                        if 0 != block_id {
-                                            info!(
-                                                "[ChunkData] Block at {x}, {y}, {z} is {block_id}"
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
 
                     // Proto::Disconnect(packet) => {

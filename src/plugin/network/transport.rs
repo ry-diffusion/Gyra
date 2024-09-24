@@ -1,17 +1,16 @@
 use crate::error;
-use gyra_proto::network::{put, put_uncompressed};
-use gyra_proto::network::{Handshake, LoginStart, Proto};
+use crate::net::resolve;
 use bevy::prelude::Resource;
 use flate2::read::ZlibDecoder;
 use gyra_codec::coding::{Decoder, Encoder};
 use gyra_codec::packet::{Direction, Packet, PacketId, When};
 use gyra_codec::variadic_int::VarInt;
-use log::{debug, info, warn};
+use gyra_proto::network::{put, put_uncompressed};
+use gyra_proto::network::{Handshake, LoginStart, Proto};
+use log::{debug, info};
 use std::io::{self, Cursor, Read, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::sync::{Mutex};
 use std::time::Duration;
-use crate::net::resolve;
 
 pub struct TrackedReader<R: Read> {
     reader: R,
@@ -117,7 +116,7 @@ impl NetworkTransport {
 
         info!("Connecting to server at: {addr:#?}");
 
-        let mut stream = TcpStream::connect_timeout(&addr, Duration::from_millis(1500))?;
+        let stream = TcpStream::connect_timeout(&addr, Duration::from_millis(1500))?;
 
         stream.set_nonblocking(true)?;
         // stream.set_nodelay(true)?;

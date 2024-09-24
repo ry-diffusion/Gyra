@@ -1,7 +1,6 @@
 mod handshake;
 mod login;
-mod play;
 pub mod network;
+mod play;
+pub mod smp;
 mod status;
-mod chunk;
-mod smp;

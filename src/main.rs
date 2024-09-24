@@ -14,7 +14,7 @@ use bevy::{
         RenderPlugin,
     },
 };
-use bevy_cosmic_edit::{CosmicFontSystem, CosmicPrimaryCamera};
+use bevy_cosmic_edit::CosmicPrimaryCamera;
 use components::MainCamera;
 use plugin::{ConnectingPlugin, LobbyPlugin, SettingsPlugin};
 use state::AppState;
@@ -26,7 +26,7 @@ fn main() {
         .add_plugins(
             DefaultPlugins.set(RenderPlugin {
                 render_creation: WgpuSettings {
-                    backends: Some(Backends::VULKAN),
+                    backends: Some(Backends::PRIMARY | Backends::SECONDARY),
                     instance_flags: InstanceFlags::ALLOW_UNDERLYING_NONCOMPLIANT_ADAPTER,
                     ..default()
                 }
@@ -54,9 +54,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-) {
+fn setup(mut commands: Commands) {
     log::info!("Welcome to Gyra!");
 
     commands
@@ -64,4 +62,3 @@ fn setup(
         .insert(MainCamera)
         .insert(CosmicPrimaryCamera);
 }
-

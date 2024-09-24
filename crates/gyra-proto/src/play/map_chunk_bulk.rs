@@ -1,4 +1,4 @@
-use crate::{chunk, smp};
+use crate::{smp};
 use gyra_codec::coding::{Decoder, Encoder};
 use gyra_codec::variadic_int::VarInt;
 use gyra_macros::{packet, CodecDecode, CodecEncode};
@@ -22,11 +22,11 @@ pub struct MapChunkBulk {
 impl Decoder for MapChunkBulk {
     fn decode<R: std::io::Read>(reader: &mut R) -> gyra_codec::error::Result<Self> {
         let sky_light_sent = bool::decode(reader)?;
-        let chunk_column_sent = VarInt::decode(reader)?;
+        let chunk_column_sent = VarInt::decode(reader)?.0;
         let mut chunk_metadata = Vec::new();
         let mut sections = Vec::new();
 
-        for _ in 0..chunk_column_sent.0 {
+        for _ in 0..chunk_column_sent {
             let x = i32::decode(reader)?;
             let z = i32::decode(reader)?;
             let primary_bit_mask = u16::decode(reader)?;
@@ -37,14 +37,18 @@ impl Decoder for MapChunkBulk {
             });
         }
 
-        for i in 0..chunk_column_sent.0 {
+        for i in 0..chunk_column_sent {
             let metadata = &chunk_metadata[i as usize];
-            let primary_bit_mask = metadata.primary_bit_mask;
-            for i in 0..16 {
-                if primary_bit_mask & (1 << i) != 0 {
-                    let resp =
-                        smp::ChunkSection::decode(reader)?;
-                    log::info!("Decoded section for x: {}, z: {}", metadata.x * 16, metadata.z * 16);
+            let bitmask = metadata.primary_bit_mask;
+            for i in 0..15 {
+                if 0 != (bitmask & (1 << i)) {
+                    log::info!("Bitmask: {}/{i}", bitmask);
+                    let resp = smp::ChunkSection::decode(reader)?;
+                    log::info!(
+                        "Decoded section for x: {}, z: {}",
+                        metadata.x * 16,
+                        metadata.z * 16
+                    );
                     sections.push(resp);
                 }
             }
@@ -52,7 +56,7 @@ impl Decoder for MapChunkBulk {
 
         Ok(Self {
             sky_light_sent,
-            chunk_column_sent,
+            chunk_column_sent: VarInt(chunk_column_sent),
             chunk_metadata,
             sections,
         })
