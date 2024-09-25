@@ -51,7 +51,7 @@ fn load_materials(mut commands: Commands, mut materials: ResMut<Assets<StandardM
 pub fn spawn_chunks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: Res<Materials>,
+    materials: Res<Materials>,
     mut events: EventReader<ChunkReceived>,
 ) {
     for chunk in events.read() {

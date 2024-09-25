@@ -4,8 +4,8 @@ use crate::plugin::transport::NetworkTransport;
 use crate::resources::PlayerAccount;
 use bevy::prelude::*;
 use gyra_codec::error::CodecError;
-use gyra_codec::packet::{Packet, When};
-use gyra_proto::network::{put, PlayerLook, PlayerPosition, Proto, SendChatMessage};
+use gyra_codec::packet::When;
+use gyra_proto::network::{PlayerLook, PlayerPosition, Proto, SendChatMessage};
 use gyra_proto::smp;
 use gyra_proto::smp::ChunkColumn;
 

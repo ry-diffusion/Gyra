@@ -3,7 +3,6 @@ use crate::state::AppState;
 use bevy::core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle};
 use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
-use bevy::window::{CursorGrabMode, PrimaryWindow};
 
 #[derive(Debug, Component)]
 pub(crate) struct Player;
@@ -14,7 +13,7 @@ struct WorldModelCamera;
 pub fn plugin(app: &mut App) {
     app.add_systems(OnEnter(AppState::Playing), (startup,))
         .add_systems(Update, movement.run_if(in_state(AppState::Playing)))
-        .add_systems(Update, (move_camera.run_if(in_state(AppState::Playing))));
+        .add_systems(Update, move_camera.run_if(in_state(AppState::Playing)));
 }
 
 fn movement(

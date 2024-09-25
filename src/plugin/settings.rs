@@ -1,12 +1,12 @@
 use bevy::{
     prelude::*,
-    window::{WindowCloseRequested, WindowClosed},
+    window::WindowCloseRequested,
 };
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::{
     env::var,
-    fs::{create_dir_all, exists, read_to_string, write},
+    fs::{exists, read_to_string, write},
     path::PathBuf,
 };
 

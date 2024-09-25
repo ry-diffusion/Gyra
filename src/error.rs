@@ -1,4 +1,3 @@
-use gyra_codec::packet::{PacketId, When};
 use thiserror::Error;
 
 #[derive(Error, Debug)]

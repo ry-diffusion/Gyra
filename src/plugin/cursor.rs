@@ -1,4 +1,3 @@
-use crate::state::AppState;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 

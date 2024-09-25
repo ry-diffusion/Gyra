@@ -5,7 +5,6 @@ use crate::plugin::CursorState;
 use crate::resources::DisconnectedReason;
 use crate::state::AppState;
 use bevy::prelude::*;
-use gyra_proto::network::Proto;
 
 mod chat;
 mod chat_proto;
@@ -34,7 +33,7 @@ impl Plugin for PlayPlugin {
 }
 
 pub fn startup(
-    mut commands: Commands,
+    commands: Commands,
     asset_server: Res<AssetServer>,
     mut cursor_state: ResMut<CursorState>,
 ) {

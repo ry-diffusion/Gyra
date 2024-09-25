@@ -2,13 +2,13 @@ use crate::error;
 use crate::net::resolve;
 use bevy::prelude::Resource;
 use flate2::read::ZlibDecoder;
-use gyra_codec::coding::{Decoder, Encoder};
-use gyra_codec::packet::{Direction, Packet, PacketId, When};
+use gyra_codec::coding::Decoder;
+use gyra_codec::packet::{Direction, When};
 use gyra_codec::variadic_int::VarInt;
-use gyra_proto::network::{put, put_uncompressed};
+use gyra_proto::network::put_uncompressed;
 use gyra_proto::network::{Handshake, LoginStart, Proto};
 use log::{debug, info};
-use std::io::{self, Cursor, Read, Write};
+use std::io::{self, Cursor, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
