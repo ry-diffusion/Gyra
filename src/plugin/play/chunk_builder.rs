@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use gyra_proto::smp;
 use std::collections::HashMap;
+use bevy::render::render_resource::Face;
 
 #[derive(Event, Debug)]
 pub struct ChunkReceived {
@@ -30,14 +31,26 @@ pub fn plugin(app: &mut App) {
         .add_systems(Update, spawn_chunks);
 }
 
+fn build_material_by_color(base_color: Color) -> StandardMaterial {
+    StandardMaterial {
+        base_color,
+        double_sided: true,
+        cull_mode: Some(Face::Back),
+        ..default()
+    }
+}
+
 fn load_materials(mut commands: Commands, mut materials: ResMut<Assets<StandardMaterial>>) {
-    let dirt = materials.add(Color::srgb_u8(138, 69, 58));
-    let grass = materials.add(Color::srgb_u8(1, 200, 0));
-    let endstone_material = materials.add(Color::srgb_u8(216, 214, 164));
-    let netherbrick_material = materials.add(Color::srgb_u8(63, 42, 35));
-    let any_block = materials.add(Color::srgb_u8(0, 0, 0));
-    let bedrock = materials.add(Color::srgb_u8(0, 0, 0));
+    let dirt = materials.add(
+        build_material_by_color(Color::srgb_u8(138, 69, 58)));
+    let grass = materials.add(build_material_by_color(Color::srgb_u8(1, 200, 0)));
+    let endstone_material = materials.add(build_material_by_color(Color::srgb_u8(216, 214, 164)));
+    let netherbrick_material = materials.add(build_material_by_color(Color::srgb_u8(63, 42, 35)));
+    let any_block = materials.add(build_material_by_color(Color::srgb_u8(0, 0, 0)));
+    let bedrock = materials.add(build_material_by_color(Color::srgb_u8(0, 0, 0)));
+    
     let mut blocks = HashMap::new();
+    
 
     blocks.insert(121, endstone_material);
     blocks.insert(112, netherbrick_material);
@@ -53,13 +66,17 @@ pub fn spawn_chunks(
     mut meshes: ResMut<Assets<Mesh>>,
     materials: Res<Materials>,
     mut events: EventReader<ChunkReceived>,
+    mut mesh: Local<Option<Handle<Mesh>>>,
 ) {
+    if mesh.is_none() {
+        *mesh = Some(meshes.add(Cuboid::new(1.0, 1.0, 1.0)));
+    }
+
     for chunk in events.read() {
         let chunk = &chunk.smp_chunk;
         let ((start_x, start_y, start_z), (end_x, end_y, end_z)) = chunk.get_world_coordinates();
         info!("Building chunks of {start_x} {start_y} {start_z} to {end_x}, {end_y}, {end_z}");
         let mut bundles = vec![];
-        let mesh = meshes.add(Cuboid::new(1.0, 1.0, 1.0));
 
         for x in 0..16 {
             for y in 0..16 {
@@ -67,6 +84,7 @@ pub fn spawn_chunks(
                     if let Some(block_id) = chunk.block_id_of(x, y, z) {
                         if 0 != block_id {
                             let (x, y, z) = chunk.block_coordinates(x, y, z);
+                            let mesh = mesh.as_ref().unwrap().clone();
 
                             bundles.push(MaterialMeshBundle {
                                 mesh: mesh.clone(),
