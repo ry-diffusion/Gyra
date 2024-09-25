@@ -49,7 +49,7 @@ fn movement(
         direction += *cam_transform.up();
     }
 
-    let new_mvnt = direction.normalize_or_zero() * 2.0; 
+    let new_mvnt = direction.normalize_or_zero() * 2.0;
     transform.translation += new_mvnt;
 
     message_writer.send(ClientMessage::Moved {
@@ -105,7 +105,7 @@ fn move_camera(
     for motion in mouse_motion.read() {
         let yaw = -motion.delta.x * 0.003;
         let pitch = -motion.delta.y * 0.002;
-        
+
         // Order of rotations is important, see <https://gamedev.stackexchange.com/a/136175/103059>
         transform.rotate_y(yaw);
         transform.rotate_local_x(pitch);

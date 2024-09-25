@@ -1,4 +1,4 @@
-use gyra_macros::{CodecDecode, CodecEncode, packet};
+use gyra_macros::{packet, CodecDecode, CodecEncode};
 
 #[derive(Clone, Debug, CodecEncode, CodecDecode, PartialEq)]
 #[packet(id: 0x01, when: Play)]

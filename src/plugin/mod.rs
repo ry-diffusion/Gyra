@@ -1,14 +1,14 @@
 mod connecting;
+mod cursor;
 mod lobby;
-mod settings;
 mod network;
 mod play;
-mod cursor;
+mod settings;
 
 pub use connecting::*;
 pub use lobby::*;
-pub use settings::*;
 pub use network::*;
 pub use play::*;
+pub use settings::*;
 
 pub use cursor::*;

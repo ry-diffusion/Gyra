@@ -132,23 +132,22 @@ pub fn lobby_startup(
         })
         .with_children(|parent| {
             if let Some(reason) = disconnect_reason {
-                parent
-                    .spawn(TextBundle {
-                        style: Style {
-                            align_self: AlignSelf::Center,
-                            justify_content: JustifyContent::Center,
-                            ..default()
-                        },
-                        text: Text::from_section(
-                            format!("Got disconnected: {}", reason.why),
-                            TextStyle {
-                                color: Color::Srgba(bevy::color::palettes::tailwind::RED_500),
-                                font_size: 24.0,
-                                ..Default::default()
-                            },
-                        ),
+                parent.spawn(TextBundle {
+                    style: Style {
+                        align_self: AlignSelf::Center,
+                        justify_content: JustifyContent::Center,
                         ..default()
-                    });
+                    },
+                    text: Text::from_section(
+                        format!("Got disconnected: {}", reason.why),
+                        TextStyle {
+                            color: Color::Srgba(bevy::color::palettes::tailwind::RED_500),
+                            font_size: 24.0,
+                            ..Default::default()
+                        },
+                    ),
+                    ..default()
+                });
             }
 
             parent

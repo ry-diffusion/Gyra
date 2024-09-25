@@ -1,9 +1,9 @@
+use crate::smp;
 use gyra_codec::coding::{Decoder, Encoder};
 use gyra_codec::variadic_int::VarInt;
 use gyra_macros::{packet, CodecDecode, CodecEncode};
-use crate::smp;
 
-#[derive(Clone, Debug,  PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[packet(id: 0x21, when: Play)]
 pub struct ChunkData {
     pub x: i32,
@@ -22,15 +22,15 @@ impl Decoder for ChunkData {
         let full_chunk = bool::decode(reader)?;
         let primary_bit_mask = u16::decode(reader)?;
         let chunk_size = VarInt::decode(reader)?;
-        
+
         let mut sections = Vec::new();
-        
+
         for i in 0..16 {
             if primary_bit_mask & (1 << i) != 0 {
                 sections.push(smp::ChunkSection::decode(reader)?);
             }
         }
-        
+
         Ok(Self {
             x,
             z,

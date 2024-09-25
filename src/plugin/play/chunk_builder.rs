@@ -51,9 +51,8 @@ fn load_materials(mut commands: Commands, mut materials: ResMut<Assets<StandardM
 pub fn spawn_chunks(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: Res<Materials>, 
+    mut materials: Res<Materials>,
     mut events: EventReader<ChunkReceived>,
-    
 ) {
     for chunk in events.read() {
         let chunk = &chunk.smp_chunk;
@@ -71,7 +70,7 @@ pub fn spawn_chunks(
 
                             bundles.push(MaterialMeshBundle {
                                 mesh: mesh.clone(),
-                                material: materials.get_material_by_block_id(block_id as _), 
+                                material: materials.get_material_by_block_id(block_id as _),
                                 transform: Transform::from_xyz(x as _, y as _, z as _),
                                 ..default()
                             });

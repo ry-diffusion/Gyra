@@ -1,5 +1,5 @@
-use std::fmt::Display;
 use crate::coding::{Decoder, Encoder};
+use std::fmt::Display;
 
 pub type PacketId = u32;
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -12,7 +12,7 @@ pub enum When {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Direction {
-    ToServer, // "ServerBound" 
+    ToServer, // "ServerBound"
     ToClient, // "ClientBound"
 }
 
@@ -37,11 +37,11 @@ pub trait Packet: Encoder + Decoder + Sized {
     fn id(&self) -> PacketId {
         Self::ID
     }
-    
+
     fn when(&self) -> When {
         Self::WHEN
     }
-    
+
     fn direction(&self) -> Direction {
         Self::DIRECTION
     }

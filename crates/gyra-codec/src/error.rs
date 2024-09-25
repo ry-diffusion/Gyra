@@ -1,5 +1,5 @@
-use thiserror::Error;
 use crate::packet::{PacketId, When};
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum VarIntError {

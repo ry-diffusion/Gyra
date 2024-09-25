@@ -21,7 +21,6 @@ impl PingPong {
 #[packet(id: 0x00, when: Status)]
 pub struct StatusRequest;
 
-
 #[derive(Debug, Clone, gyra_macros::CodecDecode, gyra_macros::CodecEncode, PartialEq)]
 #[packet(id: 0x00, when: Status)]
 pub struct StatusResponse {

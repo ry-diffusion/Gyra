@@ -7,9 +7,8 @@ pub struct ChatMessage {
     pub position: u8,
 }
 
-
 #[derive(Clone, Debug, CodecEncode, CodecDecode, PartialEq)]
 #[packet(id: 0x01, when: Play, server)]
 pub struct SendChatMessage {
-    pub content: String
+    pub content: String,
 }

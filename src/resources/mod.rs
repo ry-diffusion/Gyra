@@ -7,7 +7,6 @@ pub struct DisconnectedReason {
     pub why: String,
 }
 
-
 #[derive(Resource, Debug)]
 pub struct GamePaths {
     pub root: PathBuf,

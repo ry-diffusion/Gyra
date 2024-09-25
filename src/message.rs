@@ -41,7 +41,7 @@ pub enum ClientMessage {
         x: f64,
         feet_y: f64,
         z: f64,
-        on_ground: bool
+        on_ground: bool,
     },
 
     Look {

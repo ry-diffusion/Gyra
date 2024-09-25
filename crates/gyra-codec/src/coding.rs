@@ -1,6 +1,6 @@
-use std::io::{Read, Write};
 use super::error::Result;
 use super::variadic_int::VarInt;
+use std::io::{Read, Write};
 
 pub trait Decoder: Sized {
     fn decode<R: Read>(reader: &mut R) -> Result<Self>;

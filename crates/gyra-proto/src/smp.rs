@@ -176,12 +176,7 @@ impl ChunkColumn {
         columns
     }
 
-    pub fn from_sections(
-        mut sections: Vec<ChunkSection>,
-        bitmask: u16,
-        x: i32,
-        z: i32,
-    ) -> Self {
+    pub fn from_sections(mut sections: Vec<ChunkSection>, bitmask: u16, x: i32, z: i32) -> Self {
         let mut column = ChunkColumn {
             chunks: [const { None }; 15],
             biomes: vec![0; 256],

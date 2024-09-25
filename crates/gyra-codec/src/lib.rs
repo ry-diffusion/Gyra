@@ -1,5 +1,5 @@
-pub mod variadic_int;
 pub mod coding;
 pub mod error;
-pub mod packet;
 pub mod nibble;
+pub mod packet;
+pub mod variadic_int;

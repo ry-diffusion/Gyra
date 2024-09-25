@@ -1,15 +1,12 @@
-use std::io;
-use std::net::{SocketAddr, ToSocketAddrs};
 use hickory_resolver::config::{ResolverConfig, ResolverOpts};
 use hickory_resolver::Resolver;
 use log::{info, trace, warn};
+use std::io;
+use std::net::{SocketAddr, ToSocketAddrs};
 
 pub fn resolve(address: impl ToString) -> io::Result<SocketAddr> {
     let mut address = address.to_string();
-    let resolver = Resolver::new(
-        ResolverConfig::cloudflare(),
-        ResolverOpts::default()
-    )?;
+    let resolver = Resolver::new(ResolverConfig::cloudflare(), ResolverOpts::default())?;
 
     trace!("Resolving record for: {address}");
     let query = format!("_minecraft._tcp.{address}");
@@ -17,14 +14,19 @@ pub fn resolve(address: impl ToString) -> io::Result<SocketAddr> {
     trace!("Querying record: {query}");
 
     if let Ok(lookup) = resolver.srv_lookup(query) {
-        let entry = lookup.iter().next().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid SRV record"))?;
+        let entry = lookup
+            .iter()
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid SRV record"))?;
         trace!("SRV record: {entry:#?}");
 
         let incomplete_addr = (entry.target().to_string(), entry.port());
 
         trace!("Incomplete address: {incomplete_addr:#?}");
         let mut addrs = incomplete_addr.to_socket_addrs()?;
-        let addr = addrs.next().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid address"))?;
+        let addr = addrs
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid address"))?;
 
         info!("Resolved {address} -> {addr:#?}");
         Ok(addr)
@@ -36,9 +38,10 @@ pub fn resolve(address: impl ToString) -> io::Result<SocketAddr> {
         // the server may not support SRV records, so we'll just try to connect to the address directly
         warn!("No SRV record found, attempting to resolve address directly");
         let mut addrs = address.to_socket_addrs()?;
-        let addr = addrs.next().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid address"))?;
+        let addr = addrs
+            .next()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Invalid address"))?;
         info!("Resolved {address} -> {addr:#?}");
         Ok(addr)
     }
-
 }

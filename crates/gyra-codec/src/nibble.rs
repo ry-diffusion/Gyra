@@ -18,7 +18,7 @@ impl NibbleArray {
             byte >> 4
         }
     }
-    
+
     pub fn set(&mut self, index: usize, value: u8) {
         let byte = &mut self.data[index / 2];
         if index % 2 == 0 {
@@ -27,7 +27,7 @@ impl NibbleArray {
             *byte = (*byte & 0x0F) | ((value & 0x0F) << 4);
         }
     }
-    
+
     pub fn size(&self) -> usize {
         self.data.len() * 2
     }

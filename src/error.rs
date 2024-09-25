@@ -11,8 +11,6 @@ pub enum Error {
     #[error("NetworkThread Send error")]
     SendError,
 
-
-
     #[error("Poisoned lock: {0}")]
     PoisonedLock(String),
 

@@ -1,6 +1,6 @@
-use bevy::prelude::*;
 use crate::plugin::play::player;
 use crate::state::AppState;
+use bevy::prelude::*;
 
 #[derive(Resource, Debug)]
 pub struct DebugScreenActive;
@@ -16,7 +16,9 @@ pub fn plugin(app: &mut App) {
         .add_systems(Update, debug_screen_handler)
         .add_systems(
             Update,
-            update_info.run_if(resource_exists::<DebugScreenActive>).run_if(in_state(AppState::Playing)),
+            update_info
+                .run_if(resource_exists::<DebugScreenActive>)
+                .run_if(in_state(AppState::Playing)),
         );
 }
 
@@ -25,7 +27,7 @@ fn update_info(
     player_transform: Query<&Transform, With<player::Player>>,
 ) {
     let mut position_text = position_text.single_mut();
-    let transform = player_transform.single(); 
+    let transform = player_transform.single();
     let pos = transform.translation;
     position_text.sections[0].value = format!("Position: {pos}");
 }
@@ -68,9 +70,11 @@ fn spawn(mut commands: Commands) {
                 ),
 
                 ..Default::default()
-            }).insert(PositionText);
-        }).insert(LeftMenu);
-    
+            })
+            .insert(PositionText);
+        })
+        .insert(LeftMenu);
+
     commands.insert_resource(DebugScreenActive);
 }
 
