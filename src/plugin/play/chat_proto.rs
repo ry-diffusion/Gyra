@@ -73,9 +73,9 @@ impl ChatObject {
         if let Some(extras) = &self.extra {
             for extra in extras {
                 match extra {
-                    ExtraComponent::Text(text) => result.push_str(&text),
+                    ExtraComponent::Text(text) => result.push_str(text),
                     ExtraComponent::Component(component) => match component {
-                        ChatComponent::Text(text) => result.push_str(&text),
+                        ChatComponent::Text(text) => result.push_str(text),
                         ChatComponent::PlayerMessage(obj) => result.push_str(&obj.to_plain_text()),
                         ChatComponent::Translate(trans_obj) => {
                             result.push_str(&trans_obj.to_plain_text())

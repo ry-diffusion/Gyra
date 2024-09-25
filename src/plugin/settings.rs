@@ -71,9 +71,9 @@ fn startup(
     } = &*paths;
 
     log::info!("Game root is: {root:?}");
-    if !exists(&root).unwrap_or(false) {
+    if !exists(root).unwrap_or(false) {
         log::info!("Creating game root directory.");
-        if let Err(e) = std::fs::create_dir_all(&root) {
+        if let Err(e) = std::fs::create_dir_all(root) {
             log::error!("Could not create game root directory: {e:?}");
             log::warn!("Initial steps failed, game may not work correctly.");
         }

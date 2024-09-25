@@ -228,7 +228,7 @@ pub fn handle_buffered_text(
         let mut buffer = String::new();
         for line in chat_buffer.shown_buffer.iter() {
             buffer.push_str(line);
-            buffer.push_str("\n");
+            buffer.push('\n');
         }
 
         text.sections[0].value = buffer;
