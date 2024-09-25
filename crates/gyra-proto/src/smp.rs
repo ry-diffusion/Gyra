@@ -1,9 +1,9 @@
 // The Minecraft SMP Format is a format used by Minecraft to store the world data.
 
+use crate::play::ChunkMetadata;
 use gyra_codec::coding::{Decoder, Encoder};
 use gyra_codec::nibble::NibbleArray;
 use std::io::Read;
-use crate::play::ChunkMetadata;
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct NetworkBlock {
@@ -129,49 +129,114 @@ impl Encoder for ChunkSection {
 }
 
 /**
-* A chunk is a 16x16x256 block of the world.
+* A chunk is a 16x256x16 block of the world.
 * It contains the sections and the biomes.
 * Did you know that the world height is limit is caused because of the chunk section counter
 * is a nibble? So it only can store 16 values.
 */
 #[derive(Debug, Clone)]
-pub struct Chunk {
-    pub sections: [Option<ChunkSection>; 15],
+pub struct ChunkColumn {
+    pub chunks: [Option<ChunkSection>; 15],
     pub biomes: Vec<u8>,
+    pub x: i32,
+    pub z: i32,
 }
 
-impl Chunk {
-    pub fn from_sections_metadata(
+impl ChunkColumn {
+    pub fn from_bulk(
         mut sections: Vec<ChunkSection>,
-        metadata: Vec<ChunkMetadata>,
+        mut metadata: Vec<ChunkMetadata>,
         column_sent: i32,
-    ) -> Self {
-        let mut chunk = Chunk {
-            sections: [const { None }; 15],
-            biomes: vec![0; 256],
-        };
-    
-        for i in 0..column_sent {
-            let metadata = &metadata[i as usize];
-            let bitmask = metadata.primary_bit_mask;
+    ) -> Vec<Self> {
+        let mut columns = vec![];
+
+        for _ in 0..column_sent {
+            let meta = metadata.remove(0);
+            let bitmask = meta.primary_bit_mask;
+            let x = meta.x;
+            let z = meta.z;
+
+            let mut column = ChunkColumn {
+                chunks: [const { None }; 15],
+                biomes: vec![0; 256],
+                x,
+                z,
+            };
+
             for i in 0..15 {
                 if 0 != (bitmask & (1 << i)) {
                     let section = sections.remove(0);
-                    chunk.sections[i as usize] = Some(section);
+                    column.chunks[i] = Some(section);
                 }
             }
+
+            columns.push(column);
         }
-        
-        chunk
+
+        columns
     }
 
-    fn get_block_id(&self, x: u32, y: u32, z: u32) -> Option<u8> {
-        let section = &self.sections[(y / 16) as usize];
-        Some(section.as_ref()?.block_id(x, y, z) as u8)
+    pub fn from_sections(
+        mut sections: Vec<ChunkSection>,
+        bitmask: u16,
+        x: i32,
+        z: i32,
+    ) -> Self {
+        let mut column = ChunkColumn {
+            chunks: [const { None }; 15],
+            biomes: vec![0; 256],
+            x,
+            z,
+        };
+
+        for i in 0..15 {
+            if 0 != (bitmask & (1 << i)) {
+                let section = sections.remove(0);
+                column.chunks[i] = Some(section);
+            }
+        }
+
+        column
     }
 
-    fn get_metadata(&self, x: u32, y: u32, z: u32) -> u8 {
-        let section = &self.sections[(y / 16) as usize];
+    // Returns the world coordinates of a block in the chunk column
+    pub fn block_coordinates(&self, local_x: u32, local_y: u32, local_z: u32) -> (i32, u32, i32) {
+        debug_assert!(
+            local_x <= 16 && local_y <= 16 && local_z <= 16,
+            "the coordinates are out of bounds."
+        );
+
+        // Get the chunk's world X and Z coordinates
+        let chunk_x = self.x;
+        let chunk_z = self.z;
+
+        // Convert local coordinates to world coordinates
+        let world_x = chunk_x * 16 + local_x as i32;
+        let world_y = local_y; // Y stays the same since it's already in world space
+        let world_z = chunk_z * 16 + local_z as i32;
+
+        (world_x, world_y, world_z)
+    }
+
+    pub fn get_world_coordinates(&self) -> ((i32, i32, i32), (i32, i32, i32)) {
+        let start_x = self.x * 16;
+        let start_y = 0; // Always starts at Y=0
+        let start_z = self.z * 16;
+
+        let end_x = start_x + 15;
+        let end_y = 255; // Always ends at Y=255
+        let end_z = start_z + 15;
+
+        ((start_x, start_y, start_z), (end_x, end_y, end_z))
+    }
+
+    pub fn block_id_of(&self, x: u32, y: u32, z: u32) -> Option<u16> {
+        let section = &self.chunks[(y / 16) as usize];
+        Some(section.as_ref()?.block_id(x, y, z))
+    }
+
+    pub fn metadata_of(&self, x: u32, y: u32, z: u32) -> u8 {
+        let section = &self.chunks[(y / 16) as usize];
         section.as_ref().map_or(0, |s| s.metadata(x, y, z))
     }
 }

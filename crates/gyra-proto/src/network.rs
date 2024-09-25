@@ -140,4 +140,4 @@ macro_rules! mk_proto {
 mk_proto!(Proto => PingPong, StatusRequest, StatusResponse, Handshake,
     LoginStart, LoginSuccess, SetCompression, KeepAlive, JoinGame, ChatMessage,
     EntityRelativeMove, Entity, Disconnect, LoginDisconnect, SendChatMessage, PlayerLook,
-    ChunkData, MapChunkBulk);
+    ChunkData, MapChunkBulk, PlayerPositionAndLook, PlayerPosition);

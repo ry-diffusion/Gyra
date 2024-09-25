@@ -5,8 +5,9 @@ use crate::resources::PlayerAccount;
 use bevy::prelude::*;
 use gyra_codec::error::CodecError;
 use gyra_codec::packet::{Packet, When};
-use gyra_proto::network::{put, PlayerLook, Proto, SendChatMessage};
+use gyra_proto::network::{put, PlayerLook, PlayerPosition, Proto, SendChatMessage};
 use gyra_proto::smp;
+use gyra_proto::smp::ChunkColumn;
 
 pub mod transport;
 
@@ -171,16 +172,26 @@ fn packet_handler(
                         tx.send(UploadPacket { packet: keep_alive });
                     }
 
+                    Proto::PlayerPositionAndLook(look) => {
+                        server_message_writer.send(ServerMessage::PlayerPositionAndLook {
+                            position: Vec3::new(look.x as _, look.y as _, look.z as _),
+                            yaw: look.yaw,
+                            pitch: look.pitch,
+                        });
+                    }
+
                     Proto::MapChunkBulk(bulk) => {
-                        let chunk = smp::Chunk::from_sections_metadata(
+                        let chunks = smp::ChunkColumn::from_bulk(
                             bulk.sections.clone(),
                             bulk.chunk_metadata.clone(),
                             bulk.chunk_column_sent.0,
-                        );
-                    
-                        server_message_writer.send(ServerMessage::NewChunk {
-                            chunk,
-                        });
+                        )
+                        .into_iter()
+                        .map(|chunk| ServerMessage::NewChunk { chunk });
+
+                        info!("Received {} chunks.", chunks.len());
+
+                        server_message_writer.send_batch(chunks);
                     }
 
                     Proto::ChunkData(chunk_data) => {
@@ -189,6 +200,15 @@ fn packet_handler(
                             chunk_data.x * 16,
                             chunk_data.z * 16
                         );
+
+                        let column = ChunkColumn::from_sections(
+                            chunk_data.sections.clone(),
+                            chunk_data.primary_bit_mask,
+                            chunk_data.x,
+                            chunk_data.z,
+                        );
+
+                        server_message_writer.send(ServerMessage::NewChunk { chunk: column });
                     }
 
                     // Proto::Disconnect(packet) => {
@@ -232,6 +252,24 @@ fn handle_client_messages(
                 });
 
                 packet_writer.send(UploadPacket { packet: look });
+            }
+
+            ClientMessage::Moved {
+                x,
+                feet_y,
+                z,
+                on_ground,
+            } => {
+                let move_packet = Proto::PlayerPosition(PlayerPosition {
+                    x: *x,
+                    feet_y: *feet_y,
+                    z: *z,
+                    on_ground: *on_ground,
+                });
+
+                packet_writer.send(UploadPacket {
+                    packet: move_packet,
+                });
             }
 
             ClientMessage::ChatMessage { message } => {

@@ -1,14 +1,16 @@
 use crate::message::{ClientMessage, ServerMessage};
 use crate::plugin::play::chat::ChatComponent;
 use crate::plugin::transport::NetworkTransport;
-use crate::plugin::{CursorState};
-use gyra_proto::network::Proto;
+use crate::plugin::CursorState;
 use crate::resources::DisconnectedReason;
 use crate::state::AppState;
 use bevy::prelude::*;
+use gyra_proto::network::Proto;
 
 mod chat;
 mod chat_proto;
+mod chunk_builder;
+mod debug_screen;
 mod player;
 
 pub struct PlayPlugin;
@@ -25,6 +27,8 @@ impl Plugin for PlayPlugin {
             )
             .add_plugins(chat::plugin)
             .add_plugins(player::plugin)
+            .add_plugins(debug_screen::plugin)
+            .add_plugins(chunk_builder::plugin)
             .add_systems(OnExit(AppState::Playing), cleanup);
     }
 }
@@ -54,11 +58,16 @@ fn handle_server_messages(
     mut commands: Commands,
     mut app_state: ResMut<NextState<AppState>>,
     mut chat_writer: EventWriter<chat::NewRawChatMessage>,
+    mut chunk_writer: EventWriter<chunk_builder::ChunkReceived>,
+    mut player_transform: Query<&mut Transform, With<player::Player>>,
 ) {
     for message in server_reader.read() {
         match message {
             ServerMessage::DisconnectedOnLogin { why: _ } => {}
-            ServerMessage::NewChunk { chunk } => {
+
+            ServerMessage::PlayerPositionAndLook { position, .. } => {
+                let mut transform = player_transform.single_mut();
+                transform.translation = position.to_owned();
             }
 
             ServerMessage::GameReady { base } => {
@@ -69,6 +78,12 @@ fn handle_server_messages(
                 commands.insert_resource(DisconnectedReason { why: why.clone() });
                 commands.remove_resource::<NetworkTransport>();
                 app_state.set(AppState::Lobby);
+            }
+
+            ServerMessage::NewChunk { chunk } => {
+                chunk_writer.send(chunk_builder::ChunkReceived {
+                    smp_chunk: chunk.clone(),
+                });
             }
 
             ServerMessage::ChatMessage { message } => {

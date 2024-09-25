@@ -12,7 +12,6 @@ use serde_json::Value;
 
 use crate::resources::DisconnectedReason;
 use crate::{
-    components::MainCamera,
     net::query::QueryClient,
     resources::{CurrentServerAddress, PlayerAccount},
     state::AppState,
