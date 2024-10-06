@@ -44,7 +44,6 @@ pub fn spawn_renderer(
     asset_server: Res<AssetServer>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    let max_lines = 10;
     let chat_font = asset_server.load::<Font>("fonts/chat.otf");
 
     // TODO: Fix Font
@@ -262,10 +261,17 @@ pub fn handle_new_chat_messages(
     }
 }
 
+pub fn cleanup(mut commands: Commands, query: Query<Entity, With<ChatComponent>>) {
+    for entity in query.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+}
+
 pub fn plugin(app: &mut App) {
     app.add_event::<NewRawChatMessage>()
         .add_event::<ChatMessage>()
         .add_systems(OnEnter(AppState::Playing), (startup, spawn_renderer))
+        .add_systems(OnExit(AppState::Playing), cleanup)
         .add_systems(
             Update,
             (

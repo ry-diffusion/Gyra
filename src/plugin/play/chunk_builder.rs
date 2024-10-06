@@ -59,7 +59,21 @@ pub fn plugin(app: &mut App) {
             PostUpdate,
             (unrender_chunks).run_if(in_state(AppState::Playing)),
         )
-        .add_systems(Startup, load_materials);
+        .add_systems(Startup, load_materials)
+        .add_systems(OnExit(AppState::Playing), cleanup_chunks);
+}
+
+fn cleanup_chunks(
+    mut commands: Commands,
+    mut active_chunks: ResMut<ActivePlayerChunks>,
+    loaded_q: Query<(Entity, &ParentChunk)>,
+) {
+    for (entity, parent_chunk) in loaded_q.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+
+    // bye :c
+    active_chunks.chunks = default();
 }
 
 fn build_material_by_color(base_color: Color) -> StandardMaterial {
@@ -153,7 +167,12 @@ fn chunk_scheduler(
         let forward_dir = *player.forward();
 
         for dist_chunk in active.chunks.keys() {
-            if is_chunk_in_front(player.translation, forward_dir, *dist_chunk, pespective.fov) {
+            if is_chunk_in_front(
+                player.translation,
+                forward_dir,
+                *dist_chunk,
+                pespective.fov * 8.0,
+            ) {
                 frustum.insert(*dist_chunk);
             }
         }
@@ -190,49 +209,12 @@ fn chunk_scheduler(
     }
 }
 
-fn build_cube_mesh() -> Mesh {
-    let vertices = vec![
-        // Front
-        [-0.5, -0.5, 0.5], // BL
-        [0.5, -0.5, 0.5],  // BR
-        [0.5, 0.5, 0.5],   // TR
-        [-0.5, 0.5, 0.5],  // TL
-        // Back
-        [-0.5, -0.5, -0.5], // BL
-        [0.5, -0.5, -0.5],  // BR
-        [0.5, 0.5, -0.5],   // TR
-        [-0.5, 0.5, -0.5],  // TL
-    ];
-
-    // let positions = vertices.into_iter().flat_map(|x| x).collect::<Vec<f32>>();
-
-    let indices = Indices::U32(vec![
-        // Front
-        0, 1, 2, 2, 3, 0, // Right
-        1, 5, 6, 6, 2, 1, // Back
-        7, 6, 5, 5, 4, 7, // Left
-        4, 0, 3, 3, 7, 4, // Bottom
-        4, 5, 1, 1, 0, 4, // Top
-        3, 2, 6, 6, 7, 3,
-    ]);
-
-    let mut mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::RENDER_WORLD,
-    );
-
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
-    mesh.insert_indices(indices);
-
-    mesh
-}
-
 fn unrender_chunks(
     mut commands: Commands,
     loaded_q: Query<(Entity, &ParentChunk)>,
     mut to_unrender: EventReader<UnrenderChunk>,
 ) {
-    for chunk_pos in to_unrender.read() {
+    for (chunk_pos, _) in to_unrender.par_read() {
         for (entity, parent) in loaded_q.iter() {
             if parent.of == chunk_pos.pos {
                 commands.entity(entity).despawn_recursive();

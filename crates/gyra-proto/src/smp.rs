@@ -12,10 +12,10 @@ pub struct NetworkBlock {
 }
 
 impl NetworkBlock {
-    pub const AIR : NetworkBlock = NetworkBlock { id: 0, metadata: 0 };
+    pub const AIR: NetworkBlock = NetworkBlock { id: 0, metadata: 0 };
 
     fn from_u16(num: u16) -> Self {
-        let id = (num >> 4); // Extract the higher 12 bits as the block ID
+        let id = num >> 4; // Extract the higher 12 bits as the block ID
         let metadata = (num & 0xF) as u8; // Extract the lower 4 bits as the metadata
         NetworkBlock { id, metadata }
     }
@@ -89,7 +89,7 @@ impl ChunkSection {
 
 impl Decoder for ChunkSection {
     fn decode<R: Read>(reader: &mut R) -> gyra_codec::error::Result<Self> {
-        let mut blocks = vec![];
+        let mut blocks = vec![NetworkBlock::default(); ARRAY_SIZE];
 
         for i in 0..ARRAY_SIZE {
             let mut buff = [0; 2];
@@ -98,16 +98,16 @@ impl Decoder for ChunkSection {
             let num = u16::from_le_bytes(buff);
             let block = NetworkBlock::from_u16(num);
 
-            if block.id == 4095 && 0 != i {
-                log::warn!(
-                    "ChunkSection::decode: block.id == 4095, invalid block id, truncating blocks."
-                );
+            // if block.id == 4096 && 0 != i {
+            //     log::warn!(
+            //         "ChunkSection::decode: block.id == 4095, invalid block id, truncating blocks."
+            //     );
 
-                blocks.truncate(i);
-                break;
-            }
+            //     blocks.truncate(i);
+            //     break;
+            // }
 
-            blocks.push(block)
+            blocks[i] = block;
         }
 
         let mut blocklight = vec![0; ARRAY_SIZE / 2];

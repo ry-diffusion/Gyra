@@ -1,5 +1,4 @@
 use crate::plugin::play::player;
-use bevy::math::U16Vec2;
 use bevy::prelude::*;
 use bevy::utils::{HashMap, HashSet};
 use gyra_proto::distance::ChunkVec2;
@@ -13,8 +12,6 @@ pub struct ActivePlayerChunks {
 #[derive(Resource, Default)]
 pub struct ShownPlayerChunks {
     pub renderized: HashSet<ChunkVec2>,
-    pub in_front: HashSet<ChunkVec2>,
-    pub behind: HashSet<ChunkVec2>,
 }
 
 #[derive(Component)]

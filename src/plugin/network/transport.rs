@@ -61,9 +61,6 @@ impl NetworkTransport {
         info!("Logging in");
         put_uncompressed(&mut self.stream, &LoginStart { username })?;
 
-        info!("Switching to login state");
-        self.state = When::Login;
-
         Ok(())
     }
 
@@ -118,7 +115,7 @@ impl NetworkTransport {
 
         let stream = TcpStream::connect_timeout(&addr, Duration::from_millis(1500))?;
 
-        stream.set_nonblocking(true)?;
+        // stream.set_nonblocking(true)?;
         // stream.set_nodelay(true)?;
 
         let addr = stream.peer_addr()?;

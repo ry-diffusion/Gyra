@@ -7,7 +7,7 @@ use flate2::write::ZlibEncoder;
 use gyra_codec::coding::Encoder;
 use gyra_codec::packet::Packet;
 use gyra_codec::variadic_int::VarInt;
-use log::{debug, info, trace, warn};
+use log::{debug, trace};
 use std::io::Write;
 
 pub fn put_uncompressed<P: Packet>(
@@ -21,6 +21,11 @@ pub fn put_uncompressed<P: Packet>(
     VarInt::from(P::ID).encode(&mut data_buffer)?;
     packet.encode(&mut data_buffer)?;
 
+    debug!(
+        "Sending uncompressed packet of length: {} bytes.",
+        data_buffer.len()
+    );
+
     /* Packet Length */
     VarInt::from(data_buffer.len() as i32).encode(&mut packet_buffer)?;
     packet_buffer.append(&mut data_buffer);
@@ -28,6 +33,38 @@ pub fn put_uncompressed<P: Packet>(
     writer.write_all(&packet_buffer)?;
 
     trace!("[Client->Server] Packet data: {:02X?}", packet_buffer);
+
+    Ok(packet_buffer.len())
+}
+
+// Sends a uncompressed packet as a compressed packet
+// So the data length is ZERO.
+// This is used when the packet is smaller than the threshold
+// It doesn´t need to compress the data via Zlib
+// IDK Why minecraft did that.. But it´s how it works, nothing to do about it
+pub fn put_compressed_uncompressed<P: Packet>(
+    writer: &mut impl Write,
+    packet: &P,
+) -> gyra_codec::error::Result<usize> {
+    let mut packet_buffer = vec![];
+    let mut data_buffer = vec![];
+
+    /* Packet ID */
+    VarInt::from(P::ID).encode(&mut packet_buffer)?;
+
+    /* Packet Data */
+    packet.encode(&mut packet_buffer)?;
+
+    // 1. Packet Length
+    VarInt::from(packet_buffer.len() as i32 + 1).encode(&mut data_buffer)?;
+
+    // 2. Data Length
+    VarInt::from(0).encode(&mut data_buffer)?;
+
+    // 3. Packet Data
+    packet_buffer.append(&mut data_buffer);
+
+    writer.write_all(&data_buffer)?;
 
     Ok(packet_buffer.len())
 }
@@ -47,8 +84,10 @@ pub fn put_compressed<P: Packet>(
     uncompressed_size += packet.encode(&mut encoder)?;
 
     if (uncompressed_size as u32) < threshold {
-        warn!("Packet size is less than threshold, sending {uncompressed_size} bytes uncompressed");
-        return put_uncompressed(writer, packet);
+        debug!(
+            "Packet size is less than threshold, sending {uncompressed_size} bytes uncompressed"
+        );
+        return put_compressed_uncompressed(writer, packet);
     }
 
     debug!("Packet size is greater than threshold, sending {uncompressed_size} bytes compressed.");

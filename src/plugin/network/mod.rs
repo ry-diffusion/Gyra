@@ -2,7 +2,6 @@ use crate::error::Error;
 use crate::message::{ClientMessage, ServerMessage};
 use crate::plugin::transport::NetworkTransport;
 use crate::resources::PlayerAccount;
-use bevy::app::RunFixedMainLoop;
 use bevy::log;
 use bevy::prelude::*;
 use gyra_codec::error::CodecError;
@@ -129,6 +128,36 @@ fn packet_handler(
 
                 let username = player_account.username.clone();
                 world.login(username).unwrap();
+
+                loop {
+                    let packet = world.poll_packet().unwrap();
+
+                    match packet {
+                        Proto::LoginSuccess(packet) => {
+                            info!("Received {packet:?}");
+                            world.state = When::Play;
+                            changed_state_writer.send(ChangedState { to: When::Play });
+                            world.stream.set_nonblocking(true).unwrap();
+                            break;
+                        }
+
+                        Proto::SetCompression(packet) => {
+                            info!("Received SetCompression packet: {packet:?}, changing.");
+                            world.set_compression_threshold(packet.threshold.into());
+                        }
+
+                        Proto::Disconnect(dis) => {
+                            info!("Received {dis:?}");
+                            server_message_writer.send(ServerMessage::Disconnected {
+                                why: dis.reason.clone(),
+                            });
+                        }
+
+                        _ => {
+                            error!("Unexpected packet received: {packet:?}");
+                        }
+                    }
+                }
             }
 
             DownloadInfo::Packet(packet) => match packet {
@@ -160,7 +189,7 @@ fn packet_handler(
                 }
 
                 Proto::SetCompression(packet) => {
-                    info!("Received SetCompression packet: {packet:?}");
+                    info!("Received SetCompression packet: {packet:?}, changing.");
                     world.set_compression_threshold(packet.threshold.into());
                 }
 

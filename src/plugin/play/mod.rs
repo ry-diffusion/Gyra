@@ -41,6 +41,11 @@ pub fn startup(mut cursor_state: ResMut<CursorState>) {
     cursor_state.is_locked = true;
 }
 
+pub fn cleanup(mut cursor_state: ResMut<CursorState>) {
+    info!("Cleanup Play!");
+    cursor_state.is_locked = false;
+}
+
 pub fn chat_message_sender(
     mut chat_reader: EventReader<chat::ChatMessage>,
     mut client_message_writer: EventWriter<ClientMessage>,
@@ -106,8 +111,8 @@ fn handle_server_messages(
     }
 }
 
-pub fn cleanup(mut commands: Commands, chat: Query<Entity, With<ChatComponent>>) {
-    for e in chat.iter() {
-        commands.entity(e).despawn_recursive();
-    }
-}
+// pub fn cleanup(mut commands: Commands, chat: Query<Entity, With<ChatComponent>>) {
+//     for e in chat.iter() {
+//         commands.entity(e).despawn_recursive();
+//     }
+// }

@@ -16,19 +16,21 @@ pub(crate) struct WorldModelCamera;
 pub fn plugin(app: &mut App) {
     app.add_plugins(WireframePlugin)
         .insert_resource(WireframeConfig {
-            // The global wireframe config enables drawing of wireframes on every mesh,
-            // except those with `NoWireframe`. Meshes with `Wireframe` will always have a wireframe,
-            // regardless of the global configuration.
             global: true,
-            // Controls the default color of all wireframes. Used as the default color for global wireframes.
-            // Can be changed per mesh using the `WireframeColor` component.
             default_color: WHITE.into(),
         })
         .add_systems(OnEnter(AppState::Playing), startup)
+        .add_systems(OnExit(AppState::Playing), cleanup)
         .add_systems(
             Update,
             (movement, move_camera).run_if(in_state(AppState::Playing)),
         );
+}
+
+fn cleanup(mut commands: Commands, player_q: Query<Entity, With<Player>>) {
+    for player in player_q.iter() {
+        commands.entity(player).despawn_recursive();
+    }
 }
 
 fn movement(
@@ -100,8 +102,8 @@ fn startup(mut commands: Commands) {
                     .into(),
                     ..default()
                 },
-                GpuCulling,
-                NoCpuCulling,
+                // GpuCulling,
+                // NoCpuCulling,
                 // NoFrustumCulling,
                 //                MotionBlurBundle {
                 //                  motion_blur: MotionBlur {
