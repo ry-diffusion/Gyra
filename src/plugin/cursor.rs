@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::window::{CursorGrabMode, PrimaryWindow};
+use bevy::window::{Cursor, CursorGrabMode, PrimaryWindow};
 
 #[derive(Debug, Resource)]
 pub struct CursorState {
@@ -12,7 +12,7 @@ impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, key_handler)
             .add_systems(Update, state_handler)
-            .add_systems(Update, recenter)
+            // .add_systems(Update, recenter)
             .add_systems(Startup, startup);
     }
 }
@@ -36,9 +36,13 @@ fn state_handler(
 
     if cursor_state.is_changed() {
         if cursor_state.is_locked {
-            primary_window.cursor.grab_mode = CursorGrabMode::Locked;
-            primary_window.cursor.icon = CursorIcon::Pointer;
-            primary_window.cursor.visible = false;
+            let cursor = Cursor {
+                grab_mode: CursorGrabMode::Locked,
+                visible: false,
+                ..default()
+            };
+
+            primary_window.cursor = cursor;
         } else {
             primary_window.cursor.grab_mode = CursorGrabMode::None;
             primary_window.cursor.visible = true;

@@ -1,6 +1,18 @@
+[unstable]
+codegen-backend = true
+
 [profile.dev]
-opt-level = 1
+debug = 1 # use reduced debug info
+opt-level = 1 # optimize 
+codegen-backend = "cranelift" # use faster backend 
 
 [profile.dev.package."*"]
+codegen-backend = "llvm"
 opt-level = 3
 
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+  # (Nightly) Make the current crate share its generic instantiations
+  "-Zshare-generics=y",
+  "-Zthreads=8",                              # (Nightly) Use improved multithreading with the recommended amount of threads.
+]

@@ -6,11 +6,14 @@ use crate::resources::DisconnectedReason;
 use crate::state::AppState;
 use bevy::prelude::*;
 
+mod block_builder;
 mod chat;
 mod chat_proto;
 mod chunk_builder;
+mod chunk_cons;
 mod debug_screen;
 mod player;
+mod world;
 
 pub struct PlayPlugin;
 
@@ -24,6 +27,7 @@ impl Plugin for PlayPlugin {
                     chat_message_sender.run_if(in_state(AppState::Playing)),
                 ),
             )
+            .add_plugins(world::plugin)
             .add_plugins(chat::plugin)
             .add_plugins(player::plugin)
             .add_plugins(debug_screen::plugin)
@@ -32,11 +36,7 @@ impl Plugin for PlayPlugin {
     }
 }
 
-pub fn startup(
-    commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut cursor_state: ResMut<CursorState>,
-) {
+pub fn startup(mut cursor_state: ResMut<CursorState>) {
     info!("Play!");
     cursor_state.is_locked = true;
 }
@@ -59,6 +59,7 @@ fn handle_server_messages(
     mut chat_writer: EventWriter<chat::NewRawChatMessage>,
     mut chunk_writer: EventWriter<chunk_builder::ChunkReceived>,
     mut player_transform: Query<&mut Transform, With<player::Player>>,
+    mut last_location: Local<Option<Vec3>>,
 ) {
     for message in server_reader.read() {
         match message {
@@ -66,7 +67,17 @@ fn handle_server_messages(
 
             ServerMessage::PlayerPositionAndLook { position, .. } => {
                 let mut transform = player_transform.single_mut();
-                transform.translation = position.to_owned();
+
+                if let Some(last_location) = last_location.as_ref() {
+                    let distance = position.distance(*last_location);
+                    if distance >= 5.0 {
+                        transform.translation = position.to_owned();
+                    }
+                } else {
+                    transform.translation = position.to_owned();
+                }
+
+                *last_location = Some(position.to_owned());
             }
 
             ServerMessage::GameReady { base } => {

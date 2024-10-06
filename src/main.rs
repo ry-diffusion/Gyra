@@ -7,7 +7,10 @@ mod resources;
 mod state;
 
 use crate::plugin::{CursorPlugin, NetworkPlugin, PlayPlugin};
+use bevy::core::TaskPoolThreadAssignmentPolicy;
+use bevy::window::PresentMode;
 use bevy::{
+    log,
     prelude::*,
     render::{
         settings::{Backends, InstanceFlags, WgpuSettings},
@@ -24,15 +27,38 @@ const SKY_COLOR: Color = Color::srgb(0.69, 0.69, 0.69);
 fn main() {
     App::new()
         .add_plugins(
-            DefaultPlugins.set(RenderPlugin {
-                render_creation: WgpuSettings {
-                    backends: Some(Backends::PRIMARY | Backends::SECONDARY),
-                    instance_flags: InstanceFlags::ALLOW_UNDERLYING_NONCOMPLIANT_ADAPTER,
+            DefaultPlugins
+                .set(RenderPlugin {
+                    render_creation: WgpuSettings {
+                        backends: Some(Backends::PRIMARY | Backends::SECONDARY),
+                        instance_flags: InstanceFlags::ALLOW_UNDERLYING_NONCOMPLIANT_ADAPTER,
+                        ..default()
+                    }
+                    .into(),
                     ..default()
-                }
-                .into(),
-                ..default()
-            }),
+                })
+                .set(TaskPoolPlugin {
+                    task_pool_options: TaskPoolOptions {
+                        compute: TaskPoolThreadAssignmentPolicy {
+                            // set the minimum # of compute threads
+                            // to the total number of available threads
+                            min_threads: std::thread::available_parallelism().unwrap().into(),
+                            max_threads: std::usize::MAX, // unlimited max threads
+                            percent: 1.0,                 // this value is irrelevant in this case
+                        },
+                        // keep the defaults for everything else
+                        ..default()
+                    },
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        name: Some("Gyra".to_string()),
+                        title: "Gyra".to_string(),
+                        present_mode: PresentMode::Fifo,
+                        ..default()
+                    }),
+                    ..default()
+                }),
         )
         .init_state::<AppState>()
         .add_plugins(SettingsPlugin)
@@ -55,7 +81,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    log::info!("Welcome to Gyra!");
+    info!("Welcome to Gyra!");
 
     commands
         .spawn(Camera3dBundle { ..default() })

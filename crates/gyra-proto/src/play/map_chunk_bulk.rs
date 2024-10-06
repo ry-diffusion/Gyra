@@ -42,9 +42,9 @@ impl Decoder for MapChunkBulk {
             let bitmask = metadata.primary_bit_mask;
             for i in 0..15 {
                 if 0 != (bitmask & (1 << i)) {
-                    log::info!("Bitmask: {}/{i}", bitmask);
+                    log::debug!("Bitmask: {}/{i}", bitmask);
                     let resp = smp::ChunkSection::decode(reader)?;
-                    log::info!(
+                    log::debug!(
                         "Decoded section for x: {}, z: {}",
                         metadata.x * 16,
                         metadata.z * 16

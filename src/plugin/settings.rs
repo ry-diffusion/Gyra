@@ -93,6 +93,8 @@ fn startup(
     }
 }
 
+use bevy::log;
+
 fn shutdown(
     mut exits: EventReader<AppExit>,
     paths: Res<GamePaths>,

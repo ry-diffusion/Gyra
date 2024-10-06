@@ -5,15 +5,17 @@ use gyra_codec::coding::{Decoder, Encoder};
 use gyra_codec::nibble::NibbleArray;
 use std::io::Read;
 
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Eq, Copy, Debug, PartialEq, Default)]
 pub struct NetworkBlock {
-    id: u16,      // Block ID (higher 12 bits)
-    metadata: u8, // Metadata (lower 4 bits)
+    pub id: u16,      // Block ID (higher 12 bits)
+    pub metadata: u8, // Metadata (lower 4 bits)
 }
 
 impl NetworkBlock {
+    pub const AIR : NetworkBlock = NetworkBlock { id: 0, metadata: 0 };
+
     fn from_u16(num: u16) -> Self {
-        let id = (num >> 4) as u16; // Extract the higher 12 bits as the block ID
+        let id = (num >> 4); // Extract the higher 12 bits as the block ID
         let metadata = (num & 0xF) as u8; // Extract the lower 4 bits as the metadata
         NetworkBlock { id, metadata }
     }
@@ -226,7 +228,7 @@ impl ChunkColumn {
     }
 
     pub fn block_id_of(&self, x: u32, y: u32, z: u32) -> Option<u16> {
-        let section = &self.chunks[(y / 16) as usize];
+        let section = &self.chunks[((y / 16) % 16) as usize];
         Some(section.as_ref()?.block_id(x, y, z))
     }
 

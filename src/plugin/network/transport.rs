@@ -1,5 +1,6 @@
 use crate::error;
 use crate::net::resolve;
+use bevy::log::{debug, info};
 use bevy::prelude::Resource;
 use flate2::read::ZlibDecoder;
 use gyra_codec::coding::Decoder;
@@ -7,7 +8,6 @@ use gyra_codec::packet::{Direction, When};
 use gyra_codec::variadic_int::VarInt;
 use gyra_proto::network::put_uncompressed;
 use gyra_proto::network::{Handshake, LoginStart, Proto};
-use log::{debug, info};
 use std::io::{self, Cursor, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
@@ -53,16 +53,16 @@ impl NetworkTransport {
     }
 
     pub fn login(&mut self, username: String) -> error::Result<()> {
-        info!("Logging in");
         let host = self.addr.ip().to_string();
         let port = self.addr.port();
 
         put_uncompressed(&mut self.stream, &Handshake::login_handshake(host, port))?;
 
+        info!("Logging in");
+        put_uncompressed(&mut self.stream, &LoginStart { username })?;
+
         info!("Switching to login state");
         self.state = When::Login;
-
-        put_uncompressed(&mut self.stream, &LoginStart { username })?;
 
         Ok(())
     }

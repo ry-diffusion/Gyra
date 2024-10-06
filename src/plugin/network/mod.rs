@@ -2,6 +2,8 @@ use crate::error::Error;
 use crate::message::{ClientMessage, ServerMessage};
 use crate::plugin::transport::NetworkTransport;
 use crate::resources::PlayerAccount;
+use bevy::app::RunFixedMainLoop;
+use bevy::log;
 use bevy::prelude::*;
 use gyra_codec::error::CodecError;
 use gyra_codec::packet::When;
@@ -44,28 +46,26 @@ impl Plugin for NetworkPlugin {
             .add_event::<ClientMessage>()
             .add_systems(
                 FixedUpdate,
-                receive_packets.run_if(resource_exists::<NetworkTransport>),
-            )
-            .add_systems(
-                FixedUpdate,
-                handle_client_messages.run_if(resource_exists::<NetworkTransport>),
-            )
-            .add_systems(
-                FixedUpdate,
-                packet_handler
-                    .run_if(resource_exists::<NetworkTransport>)
-                    .after(receive_packets),
-            )
-            .add_systems(
-                FixedUpdate,
-                packet_writer
-                    .run_if(resource_exists::<NetworkTransport>)
-                    .after(packet_handler),
+                (
+                    // 1. RECEIVE PACKETS
+                    // 2. HANDLE CLIENT MESSAGES
+                    // 3. HANDLE PACKET
+                    // 4. WRITE PACKET
+                    receive_packets,
+                    handle_client_messages.after(receive_packets),
+                    packet_handler.after(handle_client_messages),
+                    packet_writer.after(packet_handler),
+                )
+                    .run_if(resource_exists::<NetworkTransport>),
             );
     }
 }
 
-fn receive_packets(mut world: ResMut<NetworkTransport>, mut tx: EventWriter<DownloadInfo>) {
+fn receive_packets(
+    mut world: ResMut<NetworkTransport>,
+    mut error_writer: EventWriter<ErrorFound>,
+    mut tx: EventWriter<DownloadInfo>,
+) {
     match world.state {
         When::Handshake => {
             info!("Requesting login!");
@@ -87,15 +87,22 @@ fn receive_packets(mut world: ResMut<NetworkTransport>, mut tx: EventWriter<Down
                         break;
                     }
 
-                    e => {
-                        log::error!("Error receiving packet: {e:?}");
+                    Err(Error::Codec(CodecError::IllegalPacket(pkg, when))) => {
+                        log::warn!("Illegal packet received: {pkg:?} when {when:?}");
+                    }
+
+                    Err(e) => {
+                        log::error!("Error receiving packet: {e}");
+                        error_writer.send(ErrorFound {
+                            why: format!("{e}"),
+                        });
                         break;
                     }
                 }
             }
 
             if used == 200 {
-                log::warn!(
+                warn!(
                     "Server handler is overloaded. Waiting for next update to receive new packets!"
                 );
             }
@@ -109,7 +116,6 @@ fn receive_packets(mut world: ResMut<NetworkTransport>, mut tx: EventWriter<Down
 fn packet_handler(
     mut world: ResMut<NetworkTransport>,
     mut changed_state_writer: EventWriter<ChangedState>,
-    // mut error_writer: EventWriter<ErrorFound>,
     player_account: Res<PlayerAccount>,
     mut rx: EventReader<DownloadInfo>,
     mut tx: EventWriter<UploadPacket>,
@@ -125,112 +131,116 @@ fn packet_handler(
                 world.login(username).unwrap();
             }
 
-            DownloadInfo::Packet(packet) => {
-                match packet {
-                    Proto::ChatMessage(msg) => {
-                        info!("Received {msg:?}");
-                        server_message_writer.send(ServerMessage::ChatMessage {
-                            message: msg.content.clone(),
-                        });
-                    }
-
-                    Proto::LoginDisconnect(dis) => {
-                        info!("Received {dis:?}");
-                        server_message_writer.send(ServerMessage::DisconnectedOnLogin {
-                            why: dis.reason.clone(),
-                        });
-                    }
-
-                    Proto::Disconnect(dis) => {
-                        info!("Received {dis:?}");
-                        server_message_writer.send(ServerMessage::Disconnected {
-                            why: dis.reason.clone(),
-                        });
-                    }
-
-                    Proto::LoginSuccess(packet) => {
-                        info!("Received {packet:?}");
-                        world.state = When::Play;
-                        changed_state_writer.send(ChangedState { to: When::Play });
-                    }
-
-                    Proto::SetCompression(packet) => {
-                        info!("Received SetCompression packet: {packet:?}");
-                        world.set_compression_threshold(packet.threshold.into());
-                    }
-
-                    Proto::JoinGame(packet) => {
-                        info!("Received JoinGame packet: {packet:?}");
-                        server_message_writer.send(ServerMessage::GameReady {
-                            base: packet.to_owned(),
-                        });
-                    }
-
-                    Proto::KeepAlive(packet) => {
-                        info!("Received KeepAlive packet: {packet:?}");
-                        let keep_alive = Proto::KeepAlive(packet.to_owned());
-                        tx.send(UploadPacket { packet: keep_alive });
-                    }
-
-                    Proto::PlayerPositionAndLook(look) => {
-                        server_message_writer.send(ServerMessage::PlayerPositionAndLook {
-                            position: Vec3::new(look.x as _, look.y as _, look.z as _),
-                            yaw: look.yaw,
-                            pitch: look.pitch,
-                        });
-                    }
-
-                    Proto::MapChunkBulk(bulk) => {
-                        let chunks = smp::ChunkColumn::from_bulk(
-                            bulk.sections.clone(),
-                            bulk.chunk_metadata.clone(),
-                            bulk.chunk_column_sent.0,
-                        )
-                        .into_iter()
-                        .map(|chunk| ServerMessage::NewChunk { chunk });
-
-                        info!("Received {} chunks.", chunks.len());
-
-                        server_message_writer.send_batch(chunks);
-                    }
-
-                    Proto::ChunkData(chunk_data) => {
-                        info!(
-                            "Received ChunkData packet for x: {}, y: {}",
-                            chunk_data.x * 16,
-                            chunk_data.z * 16
-                        );
-
-                        let column = ChunkColumn::from_sections(
-                            chunk_data.sections.clone(),
-                            chunk_data.primary_bit_mask,
-                            chunk_data.x,
-                            chunk_data.z,
-                        );
-
-                        server_message_writer.send(ServerMessage::NewChunk { chunk: column });
-                    }
-
-                    // Proto::Disconnect(packet) => {
-                    //     info!("Received Disconnect packet: {packet:?}");
-                    //     error_writer.send(ErrorFound { why: packet.reason });
-                    // }
-                    _ => {
-                        log::warn!("Unexpected packet: {packet:?}");
-                    }
+            DownloadInfo::Packet(packet) => match packet {
+                Proto::ChatMessage(msg) => {
+                    info!("Received {msg:?}");
+                    server_message_writer.send(ServerMessage::ChatMessage {
+                        message: msg.content.clone(),
+                    });
                 }
-            }
+
+                Proto::LoginDisconnect(dis) => {
+                    info!("Received {dis:?}");
+                    server_message_writer.send(ServerMessage::DisconnectedOnLogin {
+                        why: dis.reason.clone(),
+                    });
+                }
+
+                Proto::Disconnect(dis) => {
+                    info!("Received {dis:?}");
+                    server_message_writer.send(ServerMessage::Disconnected {
+                        why: dis.reason.clone(),
+                    });
+                }
+
+                Proto::LoginSuccess(packet) => {
+                    info!("Received {packet:?}");
+                    world.state = When::Play;
+                    changed_state_writer.send(ChangedState { to: When::Play });
+                }
+
+                Proto::SetCompression(packet) => {
+                    info!("Received SetCompression packet: {packet:?}");
+                    world.set_compression_threshold(packet.threshold.into());
+                }
+
+                Proto::JoinGame(packet) => {
+                    info!("Received JoinGame packet: {packet:?}");
+                    server_message_writer.send(ServerMessage::GameReady {
+                        base: packet.to_owned(),
+                    });
+                }
+
+                Proto::KeepAlive(packet) => {
+                    info!("Received KeepAlive packet: {packet:?}");
+                    let keep_alive = Proto::KeepAlive(packet.to_owned());
+                    tx.send(UploadPacket { packet: keep_alive });
+                }
+
+                Proto::PlayerPositionAndLook(look) => {
+                    server_message_writer.send(ServerMessage::PlayerPositionAndLook {
+                        position: Vec3::new(look.x as _, look.y as _, look.z as _),
+                        yaw: look.yaw,
+                        pitch: look.pitch,
+                    });
+                }
+
+                Proto::MapChunkBulk(bulk) => {
+                    let chunks = smp::ChunkColumn::from_bulk(
+                        bulk.sections.clone(),
+                        bulk.chunk_metadata.clone(),
+                        bulk.chunk_column_sent.0,
+                    )
+                    .into_iter()
+                    .map(|chunk| ServerMessage::NewChunk { chunk });
+
+                    info!("Received {} chunks.", chunks.len());
+
+                    server_message_writer.send_batch(chunks);
+                }
+
+                Proto::ChunkData(chunk_data) => {
+                    info!(
+                        "Received ChunkData packet for x: {}, y: {}",
+                        chunk_data.x * 16,
+                        chunk_data.z * 16
+                    );
+
+                    let column = ChunkColumn::from_sections(
+                        chunk_data.sections.clone(),
+                        chunk_data.primary_bit_mask,
+                        chunk_data.x,
+                        chunk_data.z,
+                    );
+
+                    server_message_writer.send(ServerMessage::NewChunk { chunk: column });
+                }
+                _ => {
+                    log::warn!("Unexpected packet: {packet:?}");
+                }
+            },
         }
     }
 }
 
-fn packet_writer(mut world: ResMut<NetworkTransport>, mut packets: EventReader<UploadPacket>) {
+fn packet_writer(
+    mut world: ResMut<NetworkTransport>,
+    mut error_writer: EventWriter<ErrorFound>,
+    mut packets: EventReader<UploadPacket>,
+) {
     let threshold = world.server_compress_threshold;
 
     for payload in packets.read() {
         debug!("[Client->Server] Sending packet {:?}", payload.packet);
-        let wrote_size = payload.packet.put(&mut world.stream, threshold).unwrap();
-        debug!("Wrote {wrote_size} bytes to server!");
+        match payload.packet.put(&mut world.stream, threshold) {
+            Ok(wrote) => debug!("Wrote {wrote} bytes to server!"),
+            Err(e) => {
+                log::error!("Error sending packet: {e}");
+                error_writer.send(ErrorFound {
+                    why: format!("{e}"),
+                });
+            }
+        }
     }
 }
 

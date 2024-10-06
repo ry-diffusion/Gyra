@@ -1,6 +1,6 @@
 use hickory_resolver::config::{ResolverConfig, ResolverOpts};
 use hickory_resolver::Resolver;
-use log::{info, trace, warn};
+use bevy::log::{info, trace, warn};
 use std::io;
 use std::net::{SocketAddr, ToSocketAddrs};
 

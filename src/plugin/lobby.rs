@@ -17,6 +17,8 @@ use crate::{
     state::AppState,
 };
 
+use super::{transport::NetworkTransport, ErrorFound};
+
 #[derive(Component)]
 struct LobbyText;
 
@@ -51,10 +53,27 @@ enum ServerInfo {
 
 pub struct LobbyPlugin;
 
+fn handle_error(
+    mut commands: Commands,
+    mut receiver: EventReader<ErrorFound>,
+    mut state: ResMut<NextState<AppState>>,
+) {
+    for e in receiver.read() {
+        error!("Error: {}", e.why);
+        commands.remove_resource::<NetworkTransport>();
+        state.set(AppState::Lobby);
+
+        commands.insert_resource(DisconnectedReason {
+            why: format!("Error: {}", e.why),
+        });
+    }
+}
+
 impl Plugin for LobbyPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::Lobby), lobby_startup)
             .add_systems(OnExit(AppState::Lobby), lobby_cleanup)
+            .add_systems(Update, handle_error)
             .add_systems(
                 Update,
                 (

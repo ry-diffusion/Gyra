@@ -1,54 +1,71 @@
 use crate::message::ClientMessage;
 use crate::state::AppState;
+use bevy::color::palettes::css::WHITE;
 use bevy::core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle};
 use bevy::input::mouse::MouseMotion;
+use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
+use bevy::render::view::{GpuCulling, NoCpuCulling, NoFrustumCulling};
 
 #[derive(Debug, Component)]
 pub(crate) struct Player;
 
 #[derive(Debug, Component)]
-struct WorldModelCamera;
+pub(crate) struct WorldModelCamera;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(OnEnter(AppState::Playing), (startup,))
-        .add_systems(Update, movement.run_if(in_state(AppState::Playing)))
-        .add_systems(Update, move_camera.run_if(in_state(AppState::Playing)));
+    app.add_plugins(WireframePlugin)
+        .insert_resource(WireframeConfig {
+            // The global wireframe config enables drawing of wireframes on every mesh,
+            // except those with `NoWireframe`. Meshes with `Wireframe` will always have a wireframe,
+            // regardless of the global configuration.
+            global: true,
+            // Controls the default color of all wireframes. Used as the default color for global wireframes.
+            // Can be changed per mesh using the `WireframeColor` component.
+            default_color: WHITE.into(),
+        })
+        .add_systems(OnEnter(AppState::Playing), startup)
+        .add_systems(
+            Update,
+            (movement, move_camera).run_if(in_state(AppState::Playing)),
+        );
 }
 
 fn movement(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut player: Query<&mut Transform, With<Player>>,
-    cam: Query<&Transform, (With<WorldModelCamera>, Without<Player>)>,
     mut message_writer: EventWriter<ClientMessage>,
 ) {
     let mut transform = player.single_mut();
-    let cam_transform = cam.single();
 
     let mut direction = Vec3::ZERO;
 
     if keys.pressed(KeyCode::KeyW) {
-        direction += *cam_transform.forward();
+        direction += *transform.forward();
     }
 
     if keys.pressed(KeyCode::KeyS) {
-        direction += *cam_transform.back();
+        direction += *transform.back();
     }
 
     if keys.pressed(KeyCode::KeyA) {
-        direction += *cam_transform.left();
+        direction += *transform.left();
     }
 
     if keys.pressed(KeyCode::KeyD) {
-        direction += *cam_transform.right();
+        direction += *transform.right();
     }
 
     if keys.pressed(KeyCode::Space) {
-        direction += *cam_transform.up();
+        direction += *transform.up();
     }
 
-    let new_mvnt = direction.normalize_or_zero() * 2.0;
+    if keys.pressed(KeyCode::ShiftLeft) {
+        direction += *transform.down();
+    }
+
+    let new_mvnt = direction.normalize_or_zero() * time.delta().as_secs_f32() * 5.0;
     transform.translation += new_mvnt;
 
     message_writer.send(ClientMessage::Moved {
@@ -78,19 +95,21 @@ fn startup(mut commands: Commands) {
                     },
                     projection: PerspectiveProjection {
                         fov: 70.0_f32.to_radians(),
-                        far: 15.0,
                         ..default()
                     }
                     .into(),
                     ..default()
                 },
-                MotionBlurBundle {
-                    motion_blur: MotionBlur {
-                        shutter_angle: 1.0,
-                        samples: 2,
-                    },
-                    ..default()
-                },
+                GpuCulling,
+                NoCpuCulling,
+                // NoFrustumCulling,
+                //                MotionBlurBundle {
+                //                  motion_blur: MotionBlur {
+                //                    shutter_angle: 1.0,
+                //                        samples: 2,
+                //                  },
+                //                ..default()
+                //          },
             ));
         });
 }

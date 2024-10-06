@@ -19,7 +19,6 @@ impl Plugin for ConnectingPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::Connecting), startup)
             .add_systems(Update, update_status.run_if(in_state(AppState::Connecting)))
-            .add_systems(Update, handle_error.run_if(in_state(AppState::Connecting)))
             .add_systems(
                 Update,
                 handle_server_messages.run_if(in_state(AppState::Connecting)),
@@ -100,17 +99,6 @@ fn update_status(
 
         let mut text = query.iter_mut().next().unwrap();
         text.sections[0].value = state.to.to_string()
-    }
-}
-
-fn handle_error(
-    mut commands: Commands,
-    mut receiver: EventReader<ErrorFound>,
-    mut state: ResMut<NextState<AppState>>,
-) {
-    for _ in receiver.read() {
-        commands.remove_resource::<NetworkTransport>();
-        state.set(AppState::Lobby);
     }
 }
 

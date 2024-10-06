@@ -4,7 +4,6 @@ mod lobby;
 mod network;
 mod play;
 mod settings;
-mod world;
 
 pub use connecting::*;
 pub use lobby::*;
