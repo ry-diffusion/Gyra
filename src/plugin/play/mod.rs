@@ -22,10 +22,7 @@ impl Plugin for PlayPlugin {
         app.add_systems(OnEnter(AppState::Playing), startup)
             .add_systems(
                 FixedUpdate,
-                (
-                    handle_server_messages.run_if(in_state(AppState::Playing)),
-                    chat_message_sender.run_if(in_state(AppState::Playing)),
-                ),
+                (handle_server_messages, chat_message_sender).run_if(in_state(AppState::Playing)),
             )
             .add_plugins(world::plugin)
             .add_plugins(chat::plugin)

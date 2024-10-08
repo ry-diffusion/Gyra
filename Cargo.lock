@@ -636,7 +636,7 @@ dependencies = [
  "bevy_time",
  "bevy_utils",
  "const-fnv1a-hash",
- "sysinfo",
+ "sysinfo 0.30.13",
 ]
 
 [[package]]
@@ -2433,6 +2433,7 @@ dependencies = [
  "hickory-resolver",
  "serde",
  "serde_json",
+ "sysinfo 0.32.0",
  "thiserror",
  "toml",
 ]
@@ -4443,6 +4444,20 @@ dependencies = [
  "ntapi",
  "once_cell",
  "windows 0.52.0",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3b5ae3f4f7d64646c46c4cae4e3f01d1c5d255c7406fdd7c7f999a94e488791"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+ "memchr",
+ "ntapi",
+ "rayon",
+ "windows 0.54.0",
 ]
 
 [[package]]

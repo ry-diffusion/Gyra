@@ -8,6 +8,7 @@ use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
 use bevy::render::view::VisibleEntities;
+use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind};
 
 #[derive(Resource, Debug)]
 pub struct DebugScreenActive;
@@ -27,12 +28,39 @@ struct RenderText;
 #[derive(Component)]
 struct ChunkText;
 
+#[derive(Component)]
+struct CpuText;
+
+#[derive(Component)]
+struct MemoryUsageText;
+
+#[derive(Resource)]
+struct DiagnosticsTimer {
+    timer: Timer,
+}
+
+#[derive(Event)]
+pub struct DiagnosticsText {
+    pub compute: f32,
+    pub async_compute: f32,
+    pub io: f32,
+
+    // bytes
+    pub memory_usage: u64,
+}
+
 pub fn plugin(app: &mut App) {
     app.add_plugins(FrameTimeDiagnosticsPlugin)
         .add_systems(Startup, spawn)
+        .add_event::<DiagnosticsText>()
+        .insert_resource(DiagnosticsTimer {
+            timer: Timer::from_seconds(1.0, TimerMode::Repeating),
+        })
         .add_systems(
             Update,
             (
+                update_diagnostics_text,
+                update_diagnostics_values.run_if(resource_exists::<DebugScreenActive>),
                 debug_screen_handler,
                 update_render_info,
                 update_chunk_info,
@@ -75,10 +103,10 @@ fn update_render_info(
 ) {
     let main = main_camera.single();
     let mut text = text_q.single_mut();
-    text.sections[1].value = format!(" {}", get_all_visible_num(main));
+    text.sections[1].value = format!(" main: {}", get_all_visible_num(main));
 
     if let Ok(world) = world_camera.get_single() {
-        text.sections[2].value = format!(" {}", get_all_visible_num(world));
+        text.sections[2].value = format!(" world: {}", get_all_visible_num(world));
     }
 }
 
@@ -116,8 +144,9 @@ fn update_position_data(
     let pos = transform.translation;
     let rot = transform.rotation;
     position_text.sections[1].value = format!(
-        " map: {:>2.0}/{:>2.0}/{:>2.0}, rot: {:>2.0}/{:>2.0}/{:>2.0}/{:>2.0}",
-        pos.x, pos.y, pos.z, rot.x, rot.y, rot.z, rot.w
+        " map: {:>2.0}/{:>2.0}/{:>2.0}, rot: {:>2.0}/{:>2.0}/{:>2.0}/{:>2.0}, chk: {:>2.0}/{:>2.0}",
+        pos.x, pos.y, pos.z, rot.x, rot.y, rot.z, rot.w,
+        (pos.x / 16.0).floor(), (pos.z / 16.0).floor()
     );
 }
 
@@ -281,6 +310,72 @@ fn spawn(mut commands: Commands) {
                 ..default()
             })
             .insert(ChunkText);
+
+
+            p.spawn(TextBundle {
+                text: Text::from_sections([
+                    TextSection::new(
+                        "Memory",
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::PINK_100),
+                            ..default()
+                        },
+                    ),
+                    TextSection::new(
+                        " N/A",
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::GREEN_200),
+                            ..default()
+                        },
+                    ),
+                ]),
+
+                ..default()
+            })
+                .insert(MemoryUsageText);
+
+            p.spawn(TextBundle {
+                text: Text::from_sections([
+                    TextSection::new(
+                        "CPU",
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::PINK_100),
+                            ..default()
+                        },
+                    ),
+                    TextSection::new(
+                        " N/A",
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::GREEN_200),
+                            ..default()
+                        },
+                    ),
+                    TextSection::new(
+                        " N/A",
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::PURPLE_100),
+                            ..default()
+                        },
+                    ),
+                    TextSection::new(
+                        " N/A",
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::CYAN_100),
+                            ..default()
+                        },
+                    ),
+                ]),
+
+                ..default()
+            })
+            .insert(CpuText);
+
         })
         .insert(Menu);
 
@@ -309,5 +404,83 @@ fn debug_screen_handler(
     if keys.just_pressed(KeyCode::F4) {
         info!("Toggling wireframe");
         wireframe_config.global = !wireframe_config.global;
+    }
+}
+
+fn update_diagnostics_text(
+    mut cpu_q: Query<&mut Text, With<CpuText>>,
+    mut mem_q: Query<&mut Text, (With<MemoryUsageText>, Without<CpuText>)>,
+    mut events: EventReader<DiagnosticsText>,
+) {
+    let mut cpu = cpu_q.single_mut();
+    let mut mem = mem_q.single_mut();
+
+    for event in events.read() {
+        cpu.sections[1].value = format!(" C: {:.2}%", event.compute);
+        cpu.sections[2].value = format!(" AC: {:.2}%", event.async_compute);
+        cpu.sections[3].value = format!(" IO: {:.2}%", event.io);
+
+        mem.sections[1].value = format!(" {:.2} MB", event.memory_usage / 1024 / 1024);
+    }
+}
+
+fn update_diagnostics_values(
+    mut cpu_writer: EventWriter<DiagnosticsText>,
+    mut timer: ResMut<DiagnosticsTimer>,
+    time: Res<Time>,
+    mut system: Local<Option<sysinfo::System>>,
+) {
+    timer.timer.tick(time.delta());
+
+    if system.is_none() {
+        system.replace(sysinfo::System::new_all());
+    }
+
+    let system = system.as_mut().unwrap();
+    let myself = Pid::from(std::process::id() as usize);
+
+    if timer.timer.finished() {
+        let mut children = vec![];
+
+        for (nm, proc) in system.processes() {
+            if let Some(parent) = proc.parent() {
+                if parent == myself {
+                    children.push(nm);
+                }
+            }
+        }
+
+        let myself_proc = system.process(myself).unwrap();
+        let memory_usage = myself_proc.memory();
+
+        let mut compute = vec![];
+        let mut async_compute = vec![];
+        let mut io = vec![];
+
+        for pid in children {
+            let proc = system.process(*pid).unwrap();
+            let name = proc.name().to_string_lossy();
+            if name.starts_with("Compute") {
+                compute.push(proc.cpu_usage());
+            } else if name.contains("Async") {
+                async_compute.push(proc.cpu_usage());
+            } else if name.contains("IO") {
+                io.push(proc.cpu_usage());
+            }
+        }
+
+        cpu_writer.send(DiagnosticsText {
+            compute: compute.iter().sum::<f32>() / compute.len() as f32,
+            async_compute: async_compute.iter().sum::<f32>() / async_compute.len() as f32,
+            io: io.iter().sum::<f32>() / io.len() as f32,
+            memory_usage,
+        });
+
+        system.refresh_specifics(
+            RefreshKind::new()
+                .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+                .with_memory(MemoryRefreshKind::new().with_ram())
+                .with_processes(ProcessRefreshKind::everything()),
+        );
     }
 }

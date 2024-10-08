@@ -8,6 +8,8 @@ mod state;
 
 use crate::plugin::{CursorPlugin, NetworkPlugin, PlayPlugin};
 use bevy::core::TaskPoolThreadAssignmentPolicy;
+use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
+use bevy::render::view::RenderLayers;
 use bevy::window::PresentMode;
 use bevy::{
     log,
@@ -37,28 +39,16 @@ fn main() {
                     .into(),
                     ..default()
                 })
-                .set(TaskPoolPlugin {
-                    task_pool_options: TaskPoolOptions {
-                        compute: TaskPoolThreadAssignmentPolicy {
-                            // set the minimum # of compute threads
-                            // to the total number of available threads
-                            min_threads: std::thread::available_parallelism().unwrap().into(),
-                            max_threads: std::usize::MAX, // unlimited max threads
-                            percent: 1.0,                 // this value is irrelevant in this case
-                        },
-                        // keep the defaults for everything else
-                        ..default()
-                    },
-                })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         name: Some("Gyra".to_string()),
                         title: "Gyra".to_string(),
-                        present_mode: PresentMode::Fifo,
+                        present_mode: PresentMode::Mailbox,
                         ..default()
                     }),
                     ..default()
-                }),
+                })
+                .disable::<PipelinedRenderingPlugin>(),
         )
         .init_state::<AppState>()
         .add_plugins(SettingsPlugin)
@@ -84,7 +74,7 @@ fn setup(mut commands: Commands) {
     info!("Welcome to Gyra!");
 
     commands
-        .spawn(Camera3dBundle { ..default() })
+        .spawn(Camera2dBundle { ..default() })
         .insert(MainCamera)
         .insert(CosmicPrimaryCamera);
 }

@@ -213,15 +213,15 @@ pub fn handle_buffered_text(
     time: Res<Time>,
     mut chat_buffer: ResMut<ChatBuffer>,
 ) {
-    for (mut text, mut editor) in query.iter_mut() {
-        editor.timer.tick(time.delta());
-        if editor.timer.finished() {
-            editor.timer.reset();
+    let (mut text, mut editor) = query.single_mut();
+    editor.timer.tick(time.delta());
 
-            if !chat_buffer.shown_buffer.is_empty() {
-                let dropped = chat_buffer.shown_buffer.remove(0);
-                chat_buffer.buffer.push(dropped);
-            }
+    if editor.timer.finished() {
+        editor.timer.reset();
+
+        if !chat_buffer.shown_buffer.is_empty() {
+            let dropped = chat_buffer.shown_buffer.remove(0);
+            chat_buffer.buffer.push(dropped);
         }
 
         let mut buffer = String::new();
@@ -274,10 +274,7 @@ pub fn plugin(app: &mut App) {
         .add_systems(OnExit(AppState::Playing), cleanup)
         .add_systems(
             Update,
-            (
-                handle_new_chat_messages.run_if(in_state(AppState::Playing)),
-                handle_buffered_text.run_if(in_state(AppState::Playing)),
-            ),
+            (handle_new_chat_messages, handle_buffered_text).run_if(in_state(AppState::Playing)),
         )
         .add_systems(
             PostUpdate,

@@ -1,3 +1,4 @@
+use bevy::render::view::RenderLayers;
 use bevy::{
     prelude::*,
     tasks::{block_on, poll_once, IoTaskPool, Task},
@@ -10,14 +11,13 @@ use bevy_cosmic_edit::{
 };
 use serde_json::Value;
 
+use super::{transport::NetworkTransport, ErrorFound};
 use crate::resources::DisconnectedReason;
 use crate::{
     net::query::QueryClient,
     resources::{CurrentServerAddress, PlayerAccount},
     state::AppState,
 };
-
-use super::{transport::NetworkTransport, ErrorFound};
 
 #[derive(Component)]
 struct LobbyText;

@@ -1,6 +1,7 @@
 use bevy::{
     log::info,
     math::{IVec3, Vec3},
+    pbr::StandardMaterial,
     prelude::Transform,
     utils::HashMap,
 };
@@ -9,7 +10,7 @@ use gyra_proto::smp;
 use super::block_builder::Block;
 
 #[derive(Default, Debug, Clone)]
-pub struct ChunkMesh {
+pub struct BlockMesh {
     // vertices
     pub vertices: Vec<[f32; 3]>,
     // lighting normals
@@ -29,22 +30,23 @@ impl<'a> ChunkConstructor<'a> {
     pub fn new(column: &'a smp::ChunkColumn) -> Self {
         Self {
             column,
-            pos: IVec3::new(column.x as i32, 0, column.z as i32),
+            pos: IVec3::new(column.x, 0, column.z),
         }
     }
 
+    #[inline]
     fn block_at(&self, section: usize, pos: IVec3) -> Option<Block> {
-        let column_section = self.column.chunks[section].as_ref()?;
+        let column_section = self.column.sections[section].as_ref()?;
         let id = column_section.block_id(pos.x as _, pos.y as _, pos.z as _);
 
         Some(Block::from_id(id))
     }
 
-    fn build_block_mesh(&self, block: &Block, pos: IVec3, section: usize) -> ChunkMesh {
+    fn build_block_mesh(&self, block: &Block, pos: IVec3, section: usize) -> BlockMesh {
         // if block is air, return empty mesh
         // impl support for water
         if !block.shape().is_solid() {
-            return ChunkMesh::default();
+            return BlockMesh::default();
         }
 
         let mut vertices = Vec::with_capacity(24);
@@ -162,7 +164,7 @@ impl<'a> ChunkConstructor<'a> {
             add_face(face_vertices, *normal, &NATURAL_UV, idx);
         }
 
-        ChunkMesh {
+        BlockMesh {
             vertices,
             normals,
             uv,
@@ -170,7 +172,7 @@ impl<'a> ChunkConstructor<'a> {
         }
     }
 
-    pub fn construct(&mut self) -> Vec<(ChunkMesh, Transform)> {
+    pub fn construct(&mut self) -> Vec<(BlockMesh, Transform, u16)> {
         let mut meshes = Vec::new();
 
         let cull_directions = vec![
@@ -184,11 +186,13 @@ impl<'a> ChunkConstructor<'a> {
 
         for (idx, section) in self
             .column
-            .chunks
+            .sections
             .iter()
             .enumerate()
             .filter_map(|(idx, section)| Some((idx, section.as_ref()?)))
         {
+            info!("Rendering section: {idx}");
+
             let blocks = (0..16).flat_map(|x| {
                 (0..16).flat_map(move |y| {
                     (0..16).map(move |z| {
@@ -196,16 +200,16 @@ impl<'a> ChunkConstructor<'a> {
                         let block_id = section.block_id(x as _, y as _, z as _);
                         let block = Block::from_id(block_id);
 
-                        (pos, block)
+                        (pos, block, block_id)
                     })
                 })
             });
 
-            let section_pos = Vec3::new(self.pos.x as f32, idx as f32, self.pos.z as f32) * 16.0;
+            let section_pos = self.pos.as_vec3().with_y(idx as _) * 16.0;
 
             let blocks = blocks
                 .into_iter()
-                .filter(|(_, block)| block.shape().is_visible());
+                .filter(|(_, block, _)| block.shape().is_visible());
 
             // The check
             /*
@@ -218,7 +222,7 @@ impl<'a> ChunkConstructor<'a> {
 
             let mut edge = HashMap::new();
 
-            for (block_pos, block) in blocks {
+            for (block_pos, block, id) in blocks {
                 let mut has_adjacent_air = false;
                 let mut has_adjacent_solid = false;
 
@@ -226,7 +230,7 @@ impl<'a> ChunkConstructor<'a> {
                     // we need to check if there is a air adjacent to the block
                     let adjacent_pos = block_pos + *direction;
 
-                    if let Some(adjacent_block) = self.block_at(idx as _, adjacent_pos) {
+                    if let Some(adjacent_block) = self.block_at(idx, adjacent_pos) {
                         if adjacent_block.shape().is_visible() {
                             has_adjacent_solid = true;
                         } else {
@@ -238,27 +242,24 @@ impl<'a> ChunkConstructor<'a> {
                 }
 
                 if has_adjacent_air && has_adjacent_solid {
-                    edge.insert(block_pos, block);
+                    edge.insert(block_pos, (block, id));
                 }
             }
 
-            // info!("Processing {} blocks in edge.", edge.keys().len());
-
-            for (pos, block) in edge {
-                let mesh = self.build_block_mesh(&block, pos, idx as _);
+            for (pos, (block, id)) in edge {
+                let mesh = self.build_block_mesh(&block, pos, idx);
 
                 if mesh.vertices.is_empty() {
                     continue;
                 }
 
-                let pos = pos.as_vec3() + section_pos;
+                let pos = section_pos + pos.as_vec3();
                 let transform = Transform::from_translation(pos);
 
-                meshes.push((mesh, transform));
+                meshes.push((mesh, transform, id));
             }
         }
 
-        info!("Rendered {} blocks in chunk.", meshes.len());
         meshes
     }
 }

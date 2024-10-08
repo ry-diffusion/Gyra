@@ -3,6 +3,7 @@
 use crate::play::ChunkMetadata;
 use gyra_codec::coding::{Decoder, Encoder};
 use gyra_codec::nibble::NibbleArray;
+use gyra_codec::variadic_int::VarInt;
 use std::io::Read;
 
 #[derive(Clone, Eq, Copy, Debug, PartialEq, Default)]
@@ -20,6 +21,7 @@ impl NetworkBlock {
         NetworkBlock { id, metadata }
     }
 
+    #[allow(unused)]
     fn to_u16(&self) -> u16 {
         ((self.id as u16) << 4) | (self.metadata as u16 & 0xF)
     }
@@ -29,7 +31,7 @@ const WIDTH: usize = 16;
 const HEIGHT: usize = 16;
 const Z_SIZE: usize = 16;
 
-const ARRAY_SIZE: usize = WIDTH * HEIGHT * Z_SIZE;
+pub(crate) const ARRAY_SIZE: usize = WIDTH * HEIGHT * Z_SIZE;
 
 /**
  * A chunk section is a 16x16x16 block of the world.
@@ -70,44 +72,42 @@ impl ChunkSection {
         self.count = self.blocks.iter().filter(|&b| b.id != 0).count() as u32;
     }
 
-    fn index(x: u32, y: u32, z: u32) -> u32 {
+    fn index(x: u16, y: u16, z: u16) -> u16 {
         ((y & 0xf) << 8) | (z << 4) | x
     }
 
-    pub fn metadata(&self, x: u32, y: u32, z: u32) -> u8 {
+    pub fn metadata(&self, x: u16, y: u16, z: u16) -> u8 {
         self.blocks[ChunkSection::index(x, y, z) as usize].metadata
     }
 
-    pub fn block_id(&self, x: u32, y: u32, z: u32) -> u16 {
+    pub fn block_id(&self, x: u16, y: u16, z: u16) -> u16 {
         let index = ChunkSection::index(x, y, z) as usize;
         if index >= self.blocks.len() {
             return 0; // AIR
         }
+
         self.blocks[index].id
     }
 }
 
 impl Decoder for ChunkSection {
+    // TODO: Implement skylight
     fn decode<R: Read>(reader: &mut R) -> gyra_codec::error::Result<Self> {
-        let mut blocks = vec![NetworkBlock::default(); ARRAY_SIZE];
+        let mut blocks = vec![NetworkBlock::AIR; ARRAY_SIZE];
 
-        for i in 0..ARRAY_SIZE {
-            let mut buff = [0; 2];
-            reader.read_exact(&mut buff)?;
+        for y in 0..=15 {
+            for z in 0..=15 {
+                for x in 0..=15 {
+                    let idx = ChunkSection::index(x, y, z) as usize;
+                    let mut buff = [0; 2];
+                    reader.read_exact(&mut buff)?;
 
-            let num = u16::from_le_bytes(buff);
-            let block = NetworkBlock::from_u16(num);
+                    let num = u16::from_le_bytes(buff);
+                    let block = NetworkBlock::from_u16(num);
 
-            // if block.id == 4096 && 0 != i {
-            //     log::warn!(
-            //         "ChunkSection::decode: block.id == 4095, invalid block id, truncating blocks."
-            //     );
-
-            //     blocks.truncate(i);
-            //     break;
-            // }
-
-            blocks[i] = block;
+                    blocks[idx] = block;
+                }
+            }
         }
 
         let mut blocklight = vec![0; ARRAY_SIZE / 2];
@@ -118,8 +118,8 @@ impl Decoder for ChunkSection {
 
         Ok(Self::new(
             blocks,
-            NibbleArray::from_bytes(skylight),
             NibbleArray::from_bytes(blocklight),
+            NibbleArray::from_bytes(skylight),
         ))
     }
 }
@@ -136,62 +136,33 @@ impl Encoder for ChunkSection {
 * Did you know that the world height is limit is caused because of the chunk section counter
 * is a nibble? So it only can store 16 values.
 */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ChunkColumn {
-    pub chunks: [Option<ChunkSection>; 15],
-    pub biomes: Vec<u8>,
+    pub sections: [Option<ChunkSection>; 16],
+    pub biomes: [u8; 256],
     pub x: i32,
     pub z: i32,
 }
 
 impl ChunkColumn {
-    pub fn from_bulk(
-        mut sections: Vec<ChunkSection>,
-        mut metadata: Vec<ChunkMetadata>,
-        column_sent: i32,
-    ) -> Vec<Self> {
-        let mut columns = vec![];
-
-        for _ in 0..column_sent {
-            let meta = metadata.remove(0);
-            let bitmask = meta.primary_bit_mask;
-            let x = meta.x;
-            let z = meta.z;
-
-            let mut column = ChunkColumn {
-                chunks: [const { None }; 15],
-                biomes: vec![0; 256],
-                x,
-                z,
-            };
-
-            for i in 0..15 {
-                if 0 != (bitmask & (1 << i)) {
-                    let section = sections.remove(0);
-                    column.chunks[i] = Some(section);
-                }
+    fn import_sections(sections: &mut Vec<ChunkSection>, bitmask: u16, column: &mut ChunkColumn) {
+        for i in 0..=15 {
+            if 0 != (bitmask & (1 << i)) {
+                let section = sections.remove(0);
+                column.sections[i] = Some(section);
             }
-
-            columns.push(column);
         }
-
-        columns
     }
 
     pub fn from_sections(mut sections: Vec<ChunkSection>, bitmask: u16, x: i32, z: i32) -> Self {
         let mut column = ChunkColumn {
-            chunks: [const { None }; 15],
-            biomes: vec![0; 256],
+            sections: [const { None }; 16],
+            biomes: [0; 256],
             x,
             z,
         };
 
-        for i in 0..15 {
-            if 0 != (bitmask & (1 << i)) {
-                let section = sections.remove(0);
-                column.chunks[i] = Some(section);
-            }
-        }
+        Self::import_sections(&mut sections, bitmask, &mut column);
 
         column
     }
@@ -227,13 +198,13 @@ impl ChunkColumn {
         ((start_x, start_y, start_z), (end_x, end_y, end_z))
     }
 
-    pub fn block_id_of(&self, x: u32, y: u32, z: u32) -> Option<u16> {
-        let section = &self.chunks[((y / 16) % 16) as usize];
+    pub fn block_id_of(&self, x: u16, y: u16, z: u16) -> Option<u16> {
+        let section = &self.sections[((y / 16) % 16) as usize];
         Some(section.as_ref()?.block_id(x, y, z))
     }
 
-    pub fn metadata_of(&self, x: u32, y: u32, z: u32) -> u8 {
-        let section = &self.chunks[(y / 16) as usize];
+    pub fn metadata_of(&self, x: u16, y: u16, z: u16) -> u8 {
+        let section = &self.sections[(y / 16) as usize];
         section.as_ref().map_or(0, |s| s.metadata(x, y, z))
     }
 }

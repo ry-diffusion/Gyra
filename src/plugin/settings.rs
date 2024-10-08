@@ -70,16 +70,16 @@ fn startup(
         settings_path,
     } = &*paths;
 
-    log::info!("Game root is: {root:?}");
+    info!("Game root is: {root:?}");
     if !exists(root).unwrap_or(false) {
-        log::info!("Creating game root directory.");
+        info!("Creating game root directory.");
         if let Err(e) = std::fs::create_dir_all(root) {
-            log::error!("Could not create game root directory: {e:?}");
-            log::warn!("Initial steps failed, game may not work correctly.");
+            error!("Could not create game root directory: {e:?}");
+            warn!("Initial steps failed, game may not work correctly.");
         }
     }
 
-    log::info!("Loading settings from: {settings_path:?}");
+    info!("Loading settings from: {settings_path:?}");
 
     match parse_settings(paths.settings_path.clone()) {
         Ok(settings) => {
@@ -87,8 +87,8 @@ fn startup(
             account.username = settings.username;
         }
         Err(e) => {
-            log::error!("Could not read settings: {e:?}");
-            log::info!("Using default settings.");
+            error!("Could not read settings: {e:?}");
+            info!("Using default settings.");
         }
     }
 }
@@ -110,9 +110,9 @@ fn shutdown(
         };
 
         if let Err(e) = store_settings(paths.settings_path.clone(), proto) {
-            log::error!("Could not save settings: {e:?}");
+            error!("Could not store settings: {e:?}");
         }
 
-        log::info!("Stored settings. Shutting down!")
+        info!("Stored settings. Shutting down!")
     }
 }

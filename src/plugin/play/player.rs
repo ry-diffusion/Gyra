@@ -1,11 +1,15 @@
+use crate::components::MainCamera;
 use crate::message::ClientMessage;
+use crate::plugin::consts::WorldLayer;
 use crate::state::AppState;
 use bevy::color::palettes::css::WHITE;
 use bevy::core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle};
 use bevy::input::mouse::MouseMotion;
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
-use bevy::render::view::{GpuCulling, NoCpuCulling, NoFrustumCulling};
+use bevy::render::view::{
+    GpuCulling, NoCpuCulling, NoFrustumCulling, RenderLayers, VisibleEntities,
+};
 
 #[derive(Debug, Component)]
 pub(crate) struct Player;
@@ -13,10 +17,15 @@ pub(crate) struct Player;
 #[derive(Debug, Component)]
 pub(crate) struct WorldModelCamera;
 
+#[derive(Debug, Resource)]
+struct PlayerEntity {
+    entity: Entity,
+}
+
 pub fn plugin(app: &mut App) {
     app.add_plugins(WireframePlugin)
         .insert_resource(WireframeConfig {
-            global: true,
+            global: false,
             default_color: WHITE.into(),
         })
         .add_systems(OnEnter(AppState::Playing), startup)
@@ -27,10 +36,24 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-fn cleanup(mut commands: Commands, player_q: Query<Entity, With<Player>>) {
-    for player in player_q.iter() {
-        commands.entity(player).despawn_recursive();
-    }
+fn cleanup(mut commands: Commands, player: Res<PlayerEntity>) {
+    // for (main_entity, player, entities) in player_q.iter() {
+    //     entities.entities.iter().for_each(|(_, entities)| {
+    //         entities.iter().for_each(|entity| {
+    //             commands.entity(*entity).despawn_recursive();
+    //         });
+    //     });
+    //
+    //
+    //
+    //     commands.entity(main_entity).despawn_recursive();
+    //
+    //}
+
+    commands.entity(player.entity).despawn_descendants();
+    commands.entity(player.entity).despawn_recursive();
+
+    commands.remove_resource::<PlayerEntity>();
 }
 
 fn movement(
@@ -38,6 +61,7 @@ fn movement(
     time: Res<Time>,
     mut player: Query<&mut Transform, With<Player>>,
     mut message_writer: EventWriter<ClientMessage>,
+    mut old_position: Local<Vec3>,
 ) {
     let mut transform = player.single_mut();
 
@@ -67,19 +91,22 @@ fn movement(
         direction += *transform.down();
     }
 
-    let new_mvnt = direction.normalize_or_zero() * time.delta().as_secs_f32() * 5.0;
-    transform.translation += new_mvnt;
+    let new_movement = direction.normalize_or_zero() * time.delta().as_secs_f32() * 20.0;
+    transform.translation += new_movement;
 
-    message_writer.send(ClientMessage::Moved {
-        x: transform.translation.x as _,
-        feet_y: (transform.translation.y - 1.62) as _,
-        z: transform.translation.z as _,
-        on_ground: false,
-    });
+    if old_position.distance(transform.translation) > 1.0 {
+        message_writer.send(ClientMessage::Moved {
+            x: transform.translation.x as _,
+            feet_y: (transform.translation.y - 1.62) as _,
+            z: transform.translation.z as _,
+            on_ground: false,
+        });
+        *old_position = transform.translation;
+    }
 }
 
 fn startup(mut commands: Commands) {
-    commands
+    let entity = commands
         .spawn((
             Player,
             SpatialBundle {
@@ -90,6 +117,7 @@ fn startup(mut commands: Commands) {
         .with_children(|p| {
             p.spawn((
                 WorldModelCamera,
+                WorldLayer,
                 Camera3dBundle {
                     camera: Camera {
                         order: 1,
@@ -102,8 +130,8 @@ fn startup(mut commands: Commands) {
                     .into(),
                     ..default()
                 },
-                // GpuCulling,
-                // NoCpuCulling,
+                GpuCulling,
+                 // NoCpuCulling,
                 // NoFrustumCulling,
                 //                MotionBlurBundle {
                 //                  motion_blur: MotionBlur {
@@ -113,7 +141,10 @@ fn startup(mut commands: Commands) {
                 //                ..default()
                 //          },
             ));
-        });
+        })
+        .id();
+
+    commands.insert_resource(PlayerEntity { entity });
 }
 
 fn move_camera(

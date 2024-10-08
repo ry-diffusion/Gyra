@@ -12,7 +12,7 @@ impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Update, key_handler)
             .add_systems(Update, state_handler)
-            // .add_systems(Update, recenter)
+            .add_systems(PreUpdate, recenter)
             .add_systems(Startup, startup);
     }
 }

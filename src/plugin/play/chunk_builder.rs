@@ -1,5 +1,7 @@
 use std::time::Instant;
 
+use super::chunk_cons::ChunkConstructor;
+use crate::plugin::consts::WorldLayer;
 use crate::plugin::play::player::Player;
 use crate::plugin::play::world::{ActivePlayerChunks, ShownPlayerChunks, WorldChunkData};
 use crate::state::AppState;
@@ -8,11 +10,10 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, VertexAttributeValues};
 use bevy::render::render_asset::RenderAssetUsages;
 use bevy::render::render_resource::{Face, PrimitiveTopology};
+use bevy::tasks::{block_on, poll_once, AsyncComputeTaskPool, Task};
 use bevy::utils::{HashMap, HashSet};
 use gyra_proto::distance::ChunkVec2;
 use gyra_proto::smp;
-
-use super::chunk_cons::ChunkConstructor;
 
 #[derive(Event, Debug)]
 pub struct RenderChunk {
@@ -24,6 +25,14 @@ pub struct UnrenderChunk {
     pub pos: ChunkVec2,
 }
 
+#[derive(Event, Debug, Clone)]
+pub struct RenderedBlock {
+    pub mesh: Mesh,
+    pub material_id: u16,
+    pub transform: Transform,
+    pub parent_chunk: ChunkVec2,
+}
+
 #[derive(Event, Debug)]
 pub struct ChunkReceived {
     pub smp_chunk: smp::ChunkColumn,
@@ -31,12 +40,17 @@ pub struct ChunkReceived {
 
 #[derive(Resource)]
 pub struct Materials {
-    pub blocks: HashMap<u32, Handle<StandardMaterial>>,
+    pub blocks: HashMap<u16, Handle<StandardMaterial>>,
     pub any_block: Handle<StandardMaterial>,
 }
 
+#[derive(Resource)]
+pub struct ChunkBuilderTasks {
+    pub tasks: Vec<Task<Vec<RenderedBlock>>>,
+}
+
 impl Materials {
-    pub fn get_material_by_block_id(&self, id: u32) -> Handle<StandardMaterial> {
+    pub fn get_material_by_block_id(&self, id: u16) -> Handle<StandardMaterial> {
         let block = self.blocks.get(&id);
         if let Some(block) = block {
             block.clone_weak()
@@ -50,14 +64,19 @@ pub fn plugin(app: &mut App) {
     app.add_event::<ChunkReceived>()
         .add_event::<RenderChunk>()
         .add_event::<UnrenderChunk>()
+        .add_event::<RenderedBlock>()
+        .insert_resource(ChunkBuilderTasks { tasks: vec![] })
         .add_systems(
             PreUpdate,
             (download_chunks, chunk_scheduler).run_if(in_state(AppState::Playing)),
         )
-        .add_systems(Update, (render_chunks).run_if(in_state(AppState::Playing)))
+        .add_systems(
+            Update,
+            (process_chunks, render_chunks).run_if(in_state(AppState::Playing)),
+        )
         .add_systems(
             PostUpdate,
-            (unrender_chunks).run_if(in_state(AppState::Playing)),
+            unrender_chunks.run_if(in_state(AppState::Playing)),
         )
         .add_systems(Startup, load_materials)
         .add_systems(OnExit(AppState::Playing), cleanup_chunks);
@@ -67,19 +86,24 @@ fn cleanup_chunks(
     mut commands: Commands,
     mut active_chunks: ResMut<ActivePlayerChunks>,
     loaded_q: Query<(Entity, &ParentChunk)>,
+    mut shown: ResMut<ShownPlayerChunks>,
+    mut world_data: ResMut<WorldChunkData>,
 ) {
-    for (entity, parent_chunk) in loaded_q.iter() {
+    for (entity, _) in loaded_q.iter() {
         commands.entity(entity).despawn_recursive();
     }
 
     // bye :c
-    active_chunks.chunks = default();
+    active_chunks.chunks.clear();
+    world_data.loaded_column.clear();
+    shown.renderized.clear();
 }
 
 fn build_material_by_color(base_color: Color) -> StandardMaterial {
     StandardMaterial {
         base_color,
 
+        alpha_mode: AlphaMode::Blend,
         double_sided: true,
         cull_mode: Some(Face::Back),
         ..default()
@@ -91,8 +115,12 @@ fn load_materials(mut commands: Commands, mut materials: ResMut<Assets<StandardM
     let grass = materials.add(build_material_by_color(Color::srgb_u8(1, 200, 0)));
     let endstone_material = materials.add(build_material_by_color(Color::srgb_u8(216, 214, 164)));
     let netherbrick_material = materials.add(build_material_by_color(Color::srgb_u8(63, 42, 35)));
-    let any_block = materials.add(build_material_by_color(Color::srgb_u8(0, 0, 0)));
+    let any_block = materials.add(build_material_by_color(Color::srgb_u8(255, 255, 255)));
     let bedrock = materials.add(build_material_by_color(Color::srgb_u8(0, 0, 0)));
+    let cobblestone = materials.add(build_material_by_color(Color::srgb_u8(150, 150, 150)));
+    let water = materials.add(build_material_by_color(Color::srgba_u8(0, 0, 255, 150)));
+    let jungle_wood = materials.add(build_material_by_color(Color::srgb_u8(139, 69, 19)));
+    let gravel = materials.add(build_material_by_color(Color::srgb_u8(104, 104, 104)));
 
     let mut blocks = HashMap::new();
 
@@ -100,7 +128,11 @@ fn load_materials(mut commands: Commands, mut materials: ResMut<Assets<StandardM
     blocks.insert(112, netherbrick_material);
     blocks.insert(2, grass);
     blocks.insert(3, dirt);
-    blocks.insert(0, bedrock);
+    blocks.insert(7, bedrock);
+    blocks.insert(1, cobblestone);
+    blocks.insert(9, water);
+    blocks.insert(17, jungle_wood);
+    blocks.insert(13, gravel);
 
     commands.insert_resource(Materials { blocks, any_block });
 }
@@ -171,7 +203,7 @@ fn chunk_scheduler(
                 player.translation,
                 forward_dir,
                 *dist_chunk,
-                pespective.fov * 8.0,
+                pespective.fov * 2.0,
             ) {
                 frustum.insert(*dist_chunk);
             }
@@ -223,51 +255,106 @@ fn unrender_chunks(
     }
 }
 
+fn process_chunks(
+    mut rendered_writer: EventWriter<RenderedBlock>,
+    active_player_chunks: Res<ActivePlayerChunks>,
+    mut to_render: EventReader<RenderChunk>,
+    mut tasks: ResMut<ChunkBuilderTasks>,
+) {
+    // Lets generate mesh for chunks in async compute poll
+
+    let poll = AsyncComputeTaskPool::get();
+
+    for (pos, _) in to_render.par_read() {
+        if let Some(column) = active_player_chunks.chunks.get(&pos.pos) {
+            let column = column.clone();
+            let parent_chunk = pos.pos;
+            let task = poll.spawn(async move {
+                let mut constructor = ChunkConstructor::new(&column);
+                let result = constructor.construct();
+
+                let mut to_send = vec![];
+
+                for (mesh_recipe, transform, id) in result {
+                    let mut mesh = Mesh::new(
+                        PrimitiveTopology::TriangleList,
+                        RenderAssetUsages::RENDER_WORLD,
+                    );
+
+                    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh_recipe.vertices);
+                    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh_recipe.normals);
+                    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, mesh_recipe.uv);
+                    mesh.insert_indices(Indices::U32(mesh_recipe.indices));
+
+                    to_send.push(RenderedBlock {
+                        mesh,
+                        material_id: id as _,
+                        transform,
+                        parent_chunk,
+                    });
+                }
+
+                to_send
+            });
+            tasks.tasks.push(task);
+        }
+    }
+
+    let mut to_remove = vec![];
+    let mut rendered = vec![];
+    for (idx, task) in tasks.tasks.iter_mut().enumerate() {
+        let status = if task.is_finished() {
+            Some(block_on(task))
+        } else {
+            block_on(poll_once(task))
+        };
+
+        match status {
+            Some(res) => {
+                rendered.extend(res);
+
+                to_remove.push(idx);
+            }
+
+            None => {}
+        }
+    }
+
+    for idx in to_remove.iter().rev() {
+        let _ = tasks.tasks.remove(*idx);
+    }
+
+    rendered_writer.send_batch(rendered);
+}
+
 fn render_chunks(
-    active_chunks: Res<ActivePlayerChunks>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
     materials_pre: Res<Materials>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut to_render: EventReader<RenderChunk>,
+    mut to_render: EventReader<RenderedBlock>,
 ) {
-    // let material = materials.add(StandardMaterial {
-    //     base_color: Color::srgba(0.5, 0.8, 0.5, 0.5),
-    //     alpha_mode: AlphaMode::Blend,
-    //     ..Default::default()
-    // });
-    for (chunk_pos, _) in to_render.par_read() {
-        let column = active_chunks.chunks.get(&chunk_pos.pos).unwrap();
-        let mut chunk_cons = ChunkConstructor::new(column);
+    let mut to_spawn = vec![];
 
-        let now = Instant::now();
-        let mut to_spawn = vec![];
+    for (block, _) in to_render.par_read() {
+        let block = block.to_owned();
 
-        for (mesh_recipe, transform) in chunk_cons.construct() {
-            let mut mesh = Mesh::new(
-                PrimitiveTopology::TriangleList,
-                RenderAssetUsages::RENDER_WORLD,
-            );
+        to_spawn.push((
+            MaterialMeshBundle {
+                mesh: meshes.add(block.mesh),
+                material: materials_pre.get_material_by_block_id(block.material_id),
+                transform: block.transform,
+                ..Default::default()
+            },
+            WorldLayer,
+            ParentChunk {
+                of: block.parent_chunk,
+            },
+        ));
+    }
 
-            mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh_recipe.vertices);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh_recipe.normals);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, mesh_recipe.uv);
-            mesh.insert_indices(Indices::U32(mesh_recipe.indices));
-
-            to_spawn.push((
-                PbrBundle {
-                    mesh: meshes.add(mesh),
-                    material: materials_pre.get_material_by_block_id(2),
-                    transform,
-                    ..Default::default()
-                },
-                ParentChunk { of: chunk_pos.pos },
-            ));
-        }
-
+    if !to_spawn.is_empty() {
+        info!("Rendering {}", to_spawn.len());
         commands.spawn_batch(to_spawn);
-
-        info!("Chunk spawn time: {:?}", now.elapsed());
     }
 }
 

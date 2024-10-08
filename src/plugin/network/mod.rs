@@ -215,15 +215,13 @@ fn packet_handler(
                 }
 
                 Proto::MapChunkBulk(bulk) => {
-                    let chunks = smp::ChunkColumn::from_bulk(
-                        bulk.sections.clone(),
-                        bulk.chunk_metadata.clone(),
-                        bulk.chunk_column_sent.0,
-                    )
-                    .into_iter()
-                    .map(|chunk| ServerMessage::NewChunk { chunk });
+                    let chunks = bulk
+                        .columns
+                        .clone()
+                        .into_iter()
+                        .map(|chunk| ServerMessage::NewChunk { chunk });
 
-                    info!("Received {} chunks.", chunks.len());
+                    info!("Received {} chunks via Bulk.", chunks.len());
 
                     server_message_writer.send_batch(chunks);
                 }
@@ -245,7 +243,7 @@ fn packet_handler(
                     server_message_writer.send(ServerMessage::NewChunk { chunk: column });
                 }
                 _ => {
-                    log::warn!("Unexpected packet: {packet:?}");
+                    warn!("Unexpected packet: {packet:?}");
                 }
             },
         }
