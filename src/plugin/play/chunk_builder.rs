@@ -265,12 +265,30 @@ fn process_chunks(
 
     let poll = AsyncComputeTaskPool::get();
 
+    let build_neighbors = |pos: ChunkVec2| {
+        let mut neighbors = HashMap::<IVec3, smp::ChunkColumn>::new();
+
+        let directions = [(0, 1), (0, -1), (1, 0), (-1, 0)];
+
+        for (x, z) in directions.iter() {
+            let neighbor_pos = IVec3::new(pos.x + x, 0, pos.z + z);
+            let chpos = ChunkVec2::new_local(neighbor_pos.x, neighbor_pos.z);
+            if let Some(neighbor) = active_player_chunks.chunks.get(&chpos) {
+                neighbors.insert(neighbor_pos, neighbor.clone());
+            }
+        }
+
+        neighbors
+    };
+
     for (pos, _) in to_render.par_read() {
         if let Some(column) = active_player_chunks.chunks.get(&pos.pos) {
             let column = column.clone();
             let parent_chunk = pos.pos;
+            let neighbors = build_neighbors(parent_chunk);
+
             let task = poll.spawn(async move {
-                let mut constructor = ChunkConstructor::new(&column);
+                let mut constructor = ChunkConstructor::new(&column, neighbors);
                 let result = constructor.construct();
 
                 let mut to_send = vec![];

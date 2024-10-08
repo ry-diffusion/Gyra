@@ -131,15 +131,13 @@ fn startup(mut commands: Commands) {
                     ..default()
                 },
                 GpuCulling,
-                 // NoCpuCulling,
-                // NoFrustumCulling,
-                //                MotionBlurBundle {
-                //                  motion_blur: MotionBlur {
-                //                    shutter_angle: 1.0,
-                //                        samples: 2,
-                //                  },
-                //                ..default()
-                //          },
+                // MotionBlurBundle {
+                //     motion_blur: MotionBlur {
+                //         shutter_angle: 1.0,
+                //         samples: 2,
+                //     },
+                //     ..default()
+                // },
             ));
         })
         .id();

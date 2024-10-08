@@ -6,6 +6,7 @@ use bevy::{
     utils::HashMap,
 };
 use gyra_proto::smp;
+use std::hash::Hash;
 
 use super::block_builder::Block;
 
@@ -24,27 +25,60 @@ pub struct BlockMesh {
 pub struct ChunkConstructor<'a> {
     pub column: &'a smp::ChunkColumn,
     pub pos: IVec3,
+    pub neighbors: HashMap<IVec3, smp::ChunkColumn>,
 }
 
 impl<'a> ChunkConstructor<'a> {
-    pub fn new(column: &'a smp::ChunkColumn) -> Self {
+    pub fn new(column: &'a smp::ChunkColumn, neighbors: HashMap<IVec3, smp::ChunkColumn>) -> Self {
         Self {
             column,
             pos: IVec3::new(column.x, 0, column.z),
+            neighbors,
         }
     }
 
     #[inline]
     fn block_at(&self, section: usize, pos: IVec3) -> Option<Block> {
-        let column_section = self.column.sections[section].as_ref()?;
-        let id = column_section.block_id(pos.x as _, pos.y as _, pos.z as _);
+        if pos.x >= 0 && pos.x < 16 && pos.y >= 0 && pos.y < 16 && pos.z >= 0 && pos.z < 16 {
+            let column_section = self.column.sections[section].as_ref()?;
+            let id = column_section.block_id(pos.x as _, pos.y as _, pos.z as _);
+            Some(Block::from_id(id))
+        } else {
+            let chunk_offset = IVec3::new(
+                if pos.x < 0 {
+                    -1
+                } else if pos.x >= 16 {
+                    1
+                } else {
+                    0
+                },
+                0,
+                if pos.z < 0 {
+                    -1
+                } else if pos.z >= 16 {
+                    1
+                } else {
+                    0
+                },
+            );
+            let neighbor_pos = self.pos + chunk_offset;
 
-        Some(Block::from_id(id))
+            if let Some(neighbor) = self.neighbors.get(&neighbor_pos) {
+                let neighbor_section = neighbor.sections[section].as_ref()?;
+                let neighbor_pos = pos - chunk_offset * 16;
+                let id = neighbor_section.block_id(
+                    neighbor_pos.x as _,
+                    neighbor_pos.y as _,
+                    neighbor_pos.z as _,
+                );
+                Some(Block::from_id(id))
+            } else {
+                None
+            }
+        }
     }
 
     fn build_block_mesh(&self, block: &Block, pos: IVec3, section: usize) -> BlockMesh {
-        // if block is air, return empty mesh
-        // impl support for water
         if !block.shape().is_solid() {
             return BlockMesh::default();
         }
@@ -59,66 +93,70 @@ impl<'a> ChunkConstructor<'a> {
         let base_index = vertices.len() as u32;
 
         let directions = [
+            // Front
             (
                 IVec3::new(0, 0, 1),
                 [0.0, 0.0, 1.0],
                 [
-                    // Front
                     [0.0, 0.0, 1.0],
                     [1.0, 0.0, 1.0],
                     [1.0, 1.0, 1.0],
                     [0.0, 1.0, 1.0],
                 ],
             ),
+            // Back
             (
                 IVec3::new(0, 0, -1),
                 [0.0, 0.0, -1.0],
                 [
-                    // Back
                     [1.0, 0.0, 0.0],
                     [0.0, 0.0, 0.0],
                     [0.0, 1.0, 0.0],
                     [1.0, 1.0, 0.0],
                 ],
             ),
+
+            // Top
             (
                 IVec3::new(0, 1, 0),
                 [0.0, 1.0, 0.0],
                 [
-                    // Top
                     [0.0, 1.0, 1.0],
                     [1.0, 1.0, 1.0],
                     [1.0, 1.0, 0.0],
                     [0.0, 1.0, 0.0],
                 ],
             ),
+
+            // Bottom
             (
                 IVec3::new(0, -1, 0),
                 [0.0, -1.0, 0.0],
                 [
-                    // Bottom
                     [0.0, 0.0, 0.0],
                     [1.0, 0.0, 0.0],
                     [1.0, 0.0, 1.0],
                     [0.0, 0.0, 1.0],
                 ],
             ),
+
+            // Left
             (
                 IVec3::new(-1, 0, 0),
                 [-1.0, 0.0, 0.0],
                 [
-                    // Left
                     [0.0, 0.0, 0.0],
                     [0.0, 0.0, 1.0],
                     [0.0, 1.0, 1.0],
                     [0.0, 1.0, 0.0],
                 ],
             ),
+
+            // Right
             (
                 IVec3::new(1, 0, 0),
                 [1.0, 0.0, 0.0],
                 [
-                    // Right
                     [1.0, 0.0, 1.0],
                     [1.0, 0.0, 0.0],
                     [1.0, 1.0, 0.0],
@@ -147,6 +185,7 @@ impl<'a> ChunkConstructor<'a> {
                     base_index,
                     base_index + 1,
                     base_index + 2,
+                    //----
                     base_index + 2,
                     base_index + 3,
                     base_index,
@@ -157,7 +196,7 @@ impl<'a> ChunkConstructor<'a> {
 
             if let Some(adjacent_block) = self.block_at(section, adjacent_pos) {
                 if adjacent_block.shape().is_solid() {
-                    continue; // Skip this face if the adjacent block is solid
+                    continue;
                 }
             }
 
