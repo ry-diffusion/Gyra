@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Shape {
     Cube,
     Air,
@@ -19,6 +20,7 @@ impl Shape {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Block {
     Air,
     Dirt,

@@ -3,6 +3,7 @@ use gyra_codec::coding::{Decoder, Encoder};
 use gyra_codec::variadic_int::VarInt;
 use gyra_macros::{packet, CodecDecode, CodecEncode};
 use std::collections::HashSet;
+use log::debug;
 
 #[derive(Clone, Debug, PartialEq, CodecDecode, CodecEncode)]
 pub struct ChunkMetadata {
@@ -41,7 +42,7 @@ impl Decoder for MapChunkBulk {
             });
         }
 
-        log::info!("Decoding {} chunk columns", chunk_column_sent);
+        debug!("Decoding {} chunk columns", chunk_column_sent);
 
         for i in 0..chunk_column_sent {
             let metadata = &metadata[i as usize];
@@ -56,7 +57,7 @@ impl Decoder for MapChunkBulk {
 
             for i in 0..=15 {
                 if 0 != (bitmask & (1 << i)) {
-                    log::info!(
+                    debug!(
                         "Decoding section for x: {}, z: {}, y: {} at {i}",
                         metadata.x * 16,
                         metadata.z * 16,

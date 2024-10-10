@@ -2,6 +2,7 @@ use crate::components::MainCamera;
 use crate::message::ClientMessage;
 use crate::plugin::consts::WorldLayer;
 use crate::state::AppState;
+use bevy::a11y::accesskit::Size;
 use bevy::color::palettes::css::WHITE;
 use bevy::core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle};
 use bevy::input::mouse::MouseMotion;
@@ -16,6 +17,9 @@ pub(crate) struct Player;
 
 #[derive(Debug, Component)]
 pub(crate) struct WorldModelCamera;
+
+#[derive(Debug, Component)]
+pub struct Aim;
 
 #[derive(Debug, Resource)]
 struct PlayerEntity {
@@ -105,7 +109,7 @@ fn movement(
     }
 }
 
-fn startup(mut commands: Commands) {
+fn startup(mut commands: Commands, assets: Res<AssetServer>) {
     let entity = commands
         .spawn((
             Player,
@@ -131,18 +135,38 @@ fn startup(mut commands: Commands) {
                     ..default()
                 },
                 GpuCulling,
-                // MotionBlurBundle {
-                //     motion_blur: MotionBlur {
-                //         shutter_angle: 1.0,
-                //         samples: 2,
-                //     },
-                //     ..default()
-                // },
+                NoFrustumCulling, // MotionBlurBundle {
+                                  //     motion_blur: MotionBlur {
+                                  //         shutter_angle: 1.0,
+                                  //         samples: 2,
+                                  //     },
+                                  //     ..default()
+                                  // },
             ));
         })
         .id();
 
     commands.insert_resource(PlayerEntity { entity });
+    commands.spawn((
+        ImageBundle {
+            image: UiImage {
+                texture: assets.load("ui/aim.png"),
+                ..default()
+            },
+            style: Style {
+                height: Val::Px(16.0),
+                width: Val::Px(16.0),
+                position_type: PositionType::Absolute,
+                top: Val::Percent(50.0),
+                left: Val::Percent(50.0),
+                bottom: Val::Percent(1.0),
+                right: Val::Percent(1.0),
+                ..default()
+            },
+            ..default()
+        },
+        Aim,
+    ));
 }
 
 fn move_camera(

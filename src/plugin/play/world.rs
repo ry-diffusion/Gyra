@@ -36,7 +36,7 @@ pub(crate) fn plugin(app: &mut App) {
         .insert_resource(ShownPlayerChunks::default())
         /* 16 chunk column */
         /* Make this memory dependent? Like use 1/2 of memory for rendering... */
-        .insert_resource(ChunkLoadDistance(4))
+        .insert_resource(ChunkLoadDistance(8))
         .add_systems(PreUpdate, update_active_chunks);
 }
 

@@ -104,8 +104,8 @@ fn build_material_by_color(base_color: Color) -> StandardMaterial {
         base_color,
 
         alpha_mode: AlphaMode::Blend,
-        double_sided: true,
-        cull_mode: Some(Face::Back),
+        double_sided: false,
+        cull_mode:  None,
         ..default()
     }
 }
@@ -289,7 +289,7 @@ fn process_chunks(
 
             let task = poll.spawn(async move {
                 let mut constructor = ChunkConstructor::new(&column, neighbors);
-                let result = constructor.construct();
+                let result = constructor.construct(Vec3::ZERO);
 
                 let mut to_send = vec![];
 
