@@ -16,7 +16,8 @@ use bevy::{
         RenderPlugin,
     },
 };
-use bevy_cosmic_edit::CosmicPrimaryCamera;
+use bevy_cosmic_edit::{CosmicPrimaryCamera, CursorPluginDisabled};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use components::MainCamera;
 use plugin::{ConnectingPlugin, LobbyPlugin, SettingsPlugin};
 use state::AppState;
@@ -94,6 +95,7 @@ fn main() {
         )
         .init_state::<AppState>()
         .add_plugins(SettingsPlugin)
+        .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(NetworkPlugin)
         .add_plugins(LobbyPlugin)
         .add_plugins(ConnectingPlugin)

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
+use bevy_cosmic_edit::CursorPluginDisabled;
 
 #[derive(Debug, Resource)]
 pub struct CursorState {
@@ -31,6 +32,7 @@ fn key_handler(keys: Res<ButtonInput<KeyCode>>, mut cursor_state: ResMut<CursorS
 fn state_handler(
     cursor_state: ResMut<CursorState>,
     mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
+    mut commands: Commands,
 ) {
     if cursor_state.is_changed() {
         let mut primary_window = q_windows.single_mut();
@@ -38,17 +40,16 @@ fn state_handler(
         if cursor_state.is_locked {
             primary_window.cursor.grab_mode = CursorGrabMode::Locked;
             primary_window.cursor.visible = false;
+            commands.insert_resource(CursorPluginDisabled);
         } else {
             primary_window.cursor.grab_mode = CursorGrabMode::None;
             primary_window.cursor.visible = true;
+            commands.remove_resource::<CursorPluginDisabled>();
         }
     }
 }
 
-fn recenter(
-    mut win_q: Query<&mut Window, With<PrimaryWindow>>,
-    cursor_state: Res<CursorState>,
-) {
+fn recenter(mut win_q: Query<&mut Window, With<PrimaryWindow>>, cursor_state: Res<CursorState>) {
     if !cursor_state.is_locked {
         return;
     }

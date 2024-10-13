@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "^0.14", features = ["wayland"] }
+bevy-inspector-egui = "0.26.0"
 bevy_cosmic_edit = { version = "0.23.0", features = ["multicam"] }
 crossbeam-channel = "0.5.13"
 directories = "5.0.1"
