@@ -92,19 +92,32 @@ impl NetworkTransport {
         Self::poll_uncompressed_packet(&mut decoder, state)
     }
 
-    pub fn poll_packet(&mut self) -> error::Result<Proto> {
+    pub fn receive_data(&mut self) -> error::Result<(Vec<u8>, When)> {
         let length = VarInt::decode(&mut self.stream)?.0;
         debug!("Received packet of length: {length:?}");
 
         let mut buff = vec![0; length as usize];
         self.stream.read_exact(&mut buff)?;
 
+        Ok((buff, self.state))
+    }
+
+    pub fn proccess_packet(
+        buff: Vec<u8>,
+        state: When,
+        compress_threshould: Option<u32>,
+    ) -> error::Result<Proto> {
         let mut cursor = Cursor::new(buff);
 
-        match self.server_compress_threshold {
-            Some(_) => Self::poll_compressed_packet(&mut cursor, self.state),
-            _ => Self::poll_uncompressed_packet(&mut cursor, self.state),
+        match compress_threshould {
+            Some(_) => Self::poll_compressed_packet(&mut cursor, state),
+            _ => Self::poll_uncompressed_packet(&mut cursor, state),
         }
+    }
+
+    pub fn poll_packet(&mut self) -> error::Result<Proto> {
+        let (buff, state) = self.receive_data()?;
+        Self::proccess_packet(buff, state, self.server_compress_threshold)
     }
 
     pub fn connect(address: impl ToString) -> io::Result<Self> {

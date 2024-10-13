@@ -4,9 +4,10 @@ use crate::plugin::transport::NetworkTransport;
 use crate::resources::PlayerAccount;
 use bevy::log;
 use bevy::prelude::*;
+use bevy::tasks::{block_on, poll_once, IoTaskPool, Task};
 use gyra_codec::error::CodecError;
 use gyra_codec::packet::When;
-use gyra_proto::network::{PlayerLook, PlayerPosition, Proto, SendChatMessage};
+use gyra_proto::network::{PlayerLook, PlayerPosition, Proto, SendChatMessage, ServerKeepAlive};
 use gyra_proto::smp::ChunkColumn;
 
 pub mod transport;
@@ -21,6 +22,12 @@ pub struct UploadPacket {
     pub packet: Proto,
 }
 
+impl From<Proto> for UploadPacket {
+    fn from(packet: Proto) -> Self {
+        Self { packet }
+    }
+}
+
 #[derive(Event)]
 enum DownloadInfo {
     Packet(Proto),
@@ -30,6 +37,11 @@ enum DownloadInfo {
 #[derive(Event, Debug)]
 pub struct ErrorFound {
     pub why: String,
+}
+
+#[derive(Resource)]
+pub struct ProcessTasks {
+    pub tasks: Vec<Task<crate::error::Result<Proto>>>,
 }
 
 pub struct NetworkPlugin;
@@ -42,6 +54,7 @@ impl Plugin for NetworkPlugin {
             .add_event::<ErrorFound>()
             .add_event::<ServerMessage>()
             .add_event::<ClientMessage>()
+            .insert_resource(ProcessTasks { tasks: Vec::new() })
             .add_systems(
                 FixedUpdate,
                 (
@@ -50,7 +63,8 @@ impl Plugin for NetworkPlugin {
                     // 3. HANDLE PACKET
                     // 4. WRITE PACKET
                     receive_packets,
-                    handle_client_messages.after(receive_packets),
+                    process_packets.after(receive_packets),
+                    handle_client_messages.after(process_packets),
                     packet_handler.after(handle_client_messages),
                     packet_writer.after(packet_handler),
                 )
@@ -59,10 +73,67 @@ impl Plugin for NetworkPlugin {
     }
 }
 
+fn process_packets(
+    mut iotasks: ResMut<ProcessTasks>,
+    mut tx: EventWriter<DownloadInfo>,
+    mut error_writer: EventWriter<ErrorFound>,
+) {
+    if iotasks.tasks.is_empty() {
+        return;
+    }
+
+    let mut done = vec![];
+    let mut to_remove = vec![];
+
+    debug!("processing {} packets...", iotasks.tasks.len());
+
+    for (idx, task) in iotasks.tasks.iter_mut().enumerate() {
+        let status = if task.is_finished() {
+            Some(block_on(task))
+        } else {
+            block_on(poll_once(task))
+        };
+
+        match status {
+            Some(res) => {
+                match res {
+                    Ok(packet) => {
+                        done.push(packet);
+                    }
+
+                    Err(Error::Codec(CodecError::IllegalPacket(pkg, when))) => {
+                        log::warn!("Illegal packet received: {pkg:?} when {when:?}");
+                    }
+
+                    Err(e) => {
+                        error_writer.send(ErrorFound {
+                            why: format!("{e}"),
+                        });
+                    }
+                }
+
+                to_remove.push(idx);
+            }
+
+            None => {}
+        }
+    }
+
+    for idx in to_remove.iter().rev() {
+        let _ = iotasks.tasks.remove(*idx);
+    }
+
+    if !done.is_empty() {
+        log::info!("Processed {} packets.", done.len());
+        tx.send_batch(done.into_iter().map(DownloadInfo::Packet));
+    }
+}
+
 fn receive_packets(
     mut world: ResMut<NetworkTransport>,
     mut error_writer: EventWriter<ErrorFound>,
     mut tx: EventWriter<DownloadInfo>,
+    mut iotasks: ResMut<ProcessTasks>,
 ) {
     match world.state {
         When::Handshake => {
@@ -71,12 +142,16 @@ fn receive_packets(
         }
 
         When::Login | When::Play => {
-            let mut used = 0;
-            for i in 0..200 {
-                used = i;
-                match world.poll_packet() {
-                    Ok(packet) => {
-                        tx.send(DownloadInfo::Packet(packet));
+            for _ in 0..200 {
+                match world.receive_data() {
+                    Ok((data, state)) => {
+                        let iopool = IoTaskPool::get();
+                        let compress_threshould = world.server_compress_threshold;
+                        let task = iopool.spawn(async move {
+                            NetworkTransport::proccess_packet(data, state, compress_threshould)
+                        });
+
+                        iotasks.tasks.push(task);
                     }
 
                     Err(Error::Io(e)) | Err(Error::Codec(CodecError::Io(e)))
@@ -85,24 +160,14 @@ fn receive_packets(
                         break;
                     }
 
-                    Err(Error::Codec(CodecError::IllegalPacket(pkg, when))) => {
-                        log::warn!("Illegal packet received: {pkg:?} when {when:?}");
-                    }
-
                     Err(e) => {
-                        log::error!("Error receiving packet: {e}");
+                        log::error!("Error downloading packet: {e}");
                         error_writer.send(ErrorFound {
                             why: format!("{e}"),
                         });
                         break;
                     }
                 }
-            }
-
-            if used == 200 {
-                warn!(
-                    "Server handler is overloaded. Waiting for next update to receive new packets!"
-                );
             }
         }
         When::Status => {
@@ -201,7 +266,7 @@ fn packet_handler(
 
                 Proto::KeepAlive(packet) => {
                     info!("Received KeepAlive packet: {packet:?}");
-                    let keep_alive = Proto::KeepAlive(packet.to_owned());
+                    let keep_alive = ServerKeepAlive { id: packet.id }.into();
                     tx.send(UploadPacket { packet: keep_alive });
                 }
 
@@ -257,7 +322,8 @@ fn packet_writer(
     let threshold = world.server_compress_threshold;
 
     for payload in packets.read() {
-        debug!("[Client->Server] Sending packet {:?}", payload.packet);
+        info!("[Client->Server] Sending packet {:?}", payload.packet);
+
         match payload.packet.put(&mut world.stream, threshold) {
             Ok(wrote) => debug!("Wrote {wrote} bytes to server!"),
             Err(e) => {
@@ -281,13 +347,15 @@ fn handle_client_messages(
                 pitch,
                 on_ground,
             } => {
-                let look = Proto::PlayerLook(PlayerLook {
+                let look = PlayerLook {
                     yaw: *yaw,
                     pitch: *pitch,
                     on_ground: *on_ground,
-                });
+                };
 
-                packet_writer.send(UploadPacket { packet: look });
+                packet_writer.send(UploadPacket {
+                    packet: look.into(),
+                });
             }
 
             ClientMessage::Moved {
@@ -296,16 +364,15 @@ fn handle_client_messages(
                 z,
                 on_ground,
             } => {
-                let move_packet = Proto::PlayerPosition(PlayerPosition {
+                let move_packet: Proto = PlayerPosition {
                     x: *x,
                     feet_y: *feet_y,
                     z: *z,
                     on_ground: *on_ground,
-                });
+                }
+                .into();
 
-                packet_writer.send(UploadPacket {
-                    packet: move_packet,
-                });
+                packet_writer.send(move_packet.into());
             }
 
             ClientMessage::ChatMessage { message } => {
@@ -316,13 +383,12 @@ fn handle_client_messages(
                     message = message.chars().take(100).collect();
                 }
 
-                let chat_message = Proto::SendChatMessage(SendChatMessage {
+                let chat_message: Proto = SendChatMessage {
                     content: message.to_owned(),
-                });
+                }
+                .into();
 
-                packet_writer.send(UploadPacket {
-                    packet: chat_message,
-                });
+                packet_writer.send(chat_message.into());
             }
         }
     }

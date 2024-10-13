@@ -10,6 +10,7 @@ use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
 use bevy::render::renderer::RenderAdapterInfo;
 use bevy::render::view::VisibleEntities;
+use std::time::SystemTime;
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind};
 
 #[derive(Resource, Debug)]
@@ -53,6 +54,14 @@ pub struct DiagnosticReport {
 
     // bytes
     pub avaliable_memory: u64,
+}
+
+#[cfg(windows)]
+// Blah blah blah, windows specific code
+// Why do your house doesn't have windows?
+// Cuz the view of the windows is a shit.
+thread_local! {
+    static __WIN_LAST_TIME: std::cell::RefCell<Option<TimeReport>> = std::cell::RefCell::new(None);
 }
 
 pub fn plugin(app: &mut App) {
@@ -591,8 +600,15 @@ fn update_diagnostics_values(
 
         let memory_usage = myself_proc.memory();
 
-        // Why are you felling so insecure? I'm just trying to get some information about you.
-        let (compute, async_compute, io, main) = unsafe { collect_windows_thread_usage().unwrap() };
+        /* Why are you felling so insecure baby?
+         * I'm just trying to get some information about you.
+         * ain't from CIA. Prob.
+         */
+        let Ok(Some((compute, async_compute, io, main))) =
+            (unsafe { collect_windows_thread_usage() })
+        else {
+            return;
+        };
 
         cpu_writer.send(DiagnosticReport {
             compute,
@@ -613,8 +629,22 @@ fn update_diagnostics_values(
 }
 
 #[cfg(windows)]
-unsafe fn collect_windows_thread_usage() -> windows::core::Result<(f32, f32, f32, f32)> {
+type TimeReport = (
+    SystemTime,
+    Vec<(
+        windows::Win32::Foundation::HANDLE,
+        (
+            windows::Win32::Foundation::FILETIME,
+            windows::Win32::Foundation::FILETIME,
+            String,
+        ),
+    )>,
+);
+
+#[cfg(windows)]
+unsafe fn collect_windows_thread_usage() -> windows::core::Result<Option<(f32, f32, f32, f32)>> {
     use std::mem::size_of;
+    use windows::Win32::Foundation::{CloseHandle, FILETIME};
     use windows::Win32::System::Diagnostics::ToolHelp::CreateToolhelp32Snapshot;
     use windows::Win32::System::Diagnostics::ToolHelp::{
         Thread32First, Thread32Next, TH32CS_SNAPTHREAD, THREADENTRY32,
@@ -635,63 +665,129 @@ unsafe fn collect_windows_thread_usage() -> windows::core::Result<(f32, f32, f32
     let mut io_usage = vec![];
     let mut main_cpu = vec![];
 
-    loop {
-        if entry.th32OwnerProcessID == id() {
-            // Hey, how are you?
-            let h_thread = OpenThread(
-                windows::Win32::System::Threading::THREAD_QUERY_INFORMATION,
-                false,
-                entry.th32ThreadID,
-            )?;
+    let should_process = __WIN_LAST_TIME.with(|last_time| -> windows::core::Result<bool> {
+        if last_time.borrow().is_none() {
+            let mut first_times = vec![];
 
-            // What is your name?
-            let name = GetThreadDescription(h_thread)?;
+            loop {
+                if entry.th32OwnerProcessID == id() {
+                    // Hey, how are you?
+                    let h_thread = OpenThread(
+                        windows::Win32::System::Threading::THREAD_QUERY_INFORMATION,
+                        false,
+                        entry.th32ThreadID,
+                    )?;
 
-            // No.. No.. What is your *real* name? MARCOOOO
-            let real_name = name.to_string()?;
+                    // What is your name?
+                    let name = GetThreadDescription(h_thread)?;
 
-            let mut creation_time = windows::Win32::Foundation::FILETIME::default();
-            let mut exit_time = windows::Win32::Foundation::FILETIME::default();
-            let mut kernel_time = windows::Win32::Foundation::FILETIME::default();
-            let mut user_time = windows::Win32::Foundation::FILETIME::default();
+                    // No.. No.. What is your *real* name? MARCOOOO
+                    let real_name = name.to_string()?;
 
-            /* Now that we bought a Rolex we should use it to get time! yay :D */
-            GetThreadTimes(
-                h_thread,
-                &mut creation_time,
-                &mut exit_time,
-                &mut kernel_time,
-                &mut user_time,
-            )?;
+                    let mut creation_time = FILETIME::default();
+                    let mut exit_time = FILETIME::default();
+                    let mut kernel_time = FILETIME::default();
+                    let mut user_time = FILETIME::default();
 
-            let time = duration_to_f32(kernel_time) + duration_to_f32(user_time);
+                    /* Now that we bought a Rolex we should use it to get time! yay :D */
+                    GetThreadTimes(
+                        h_thread,
+                        &mut creation_time,
+                        &mut exit_time,
+                        &mut kernel_time,
+                        &mut user_time,
+                    )?;
 
-            if real_name.starts_with("Compute") {
-                cpu_usage.push(time);
-            } else if real_name.contains("Async") {
-                async_cpu_usage.push(time);
-            } else if real_name.contains("IO") {
-                io_usage.push(time);
-            } else {
-                main_cpu.push(time);
+                    first_times.push((h_thread, (kernel_time, user_time, real_name)));
+                }
+
+                if Thread32Next(snapshot, &mut entry).is_err() {
+                    break;
+                }
             }
+
+            *last_time.borrow_mut() = Some((SystemTime::now(), first_times));
+            return Ok(false);
         }
 
-        if Thread32Next(snapshot, &mut entry).is_err() {
-            break;
+        Ok(true)
+    })?;
+
+    if !should_process {
+        return Ok(None);
+    }
+
+    let (start_time, first_times) = __WIN_LAST_TIME.take().unwrap();
+
+    let elapsed = start_time.elapsed().unwrap().as_secs_f32();
+
+    for (h_thread, (prev_kernel, prev_user, real_name)) in first_times {
+        let (kernel_time, user_time) = get_thread_times(h_thread)?;
+        CloseHandle(h_thread)?;
+
+        let kernel_diff = duration_to_f32(kernel_time) - duration_to_f32(prev_kernel);
+        let user_diff = duration_to_f32(user_time) - duration_to_f32(prev_user);
+        let total_time = kernel_diff + user_diff;
+        let usage_percent = (total_time / elapsed) * 100.0;
+
+        if real_name.starts_with("Compute") {
+            cpu_usage.push(usage_percent);
+        } else if real_name.contains("Async") {
+            async_cpu_usage.push(usage_percent);
+        } else if real_name.contains("IO") {
+            io_usage.push(usage_percent);
+        } else if real_name.contains("main") {
+            main_cpu.push(usage_percent);
         }
     }
 
-    Ok((
-        cpu_usage.iter().sum::<f32>() / cpu_usage.len() as f32,
-        async_cpu_usage.iter().sum::<f32>() / async_cpu_usage.len() as f32,
-        io_usage.iter().sum::<f32>() / io_usage.len() as f32,
-        main_cpu.iter().sum::<f32>() / main_cpu.len() as f32,
-    ))
+    // Thanks the small D guys that lower the average D size.
+    fn average(cpu_usage: &[f32]) -> f32 {
+        if cpu_usage.is_empty() {
+            return 0.0;
+        }
+
+        cpu_usage.iter().sum::<f32>() / cpu_usage.len() as f32
+    }
+
+    Ok(Some((
+        average(&cpu_usage),
+        average(&async_cpu_usage),
+        average(&io_usage),
+        average(&main_cpu),
+    )))
 }
 
 #[cfg(windows)]
 fn duration_to_f32(time: windows::Win32::Foundation::FILETIME) -> f32 {
-    let duration = ((time.dwHighDateTime as u64) << 32) | time.dwLowDateTime as u64;
-    (duration as f32) / 10_000_000.0 // Convert 100-ns intervals to seconds.
+    const HUNDRED_NANOSECONDS: f32 = 10_000_000.0; // 1 second = 10 million 100-nanoseconds.
+    let timestamp = ((time.dwHighDateTime as u64) << 32) | time.dwLowDateTime as u64;
+    timestamp as f32 / HUNDRED_NANOSECONDS
+}
+
+#[cfg(windows)]
+fn get_thread_times(
+    h_thread: windows::Win32::Foundation::HANDLE,
+) -> windows::core::Result<(
+    windows::Win32::Foundation::FILETIME,
+    windows::Win32::Foundation::FILETIME,
+)> {
+    use windows::Win32::{Foundation::FILETIME, System::Threading::GetThreadTimes};
+
+    let mut creation_time = FILETIME::default();
+    let mut exit_time = FILETIME::default();
+    let mut kernel_time = FILETIME::default();
+    let mut user_time = FILETIME::default();
+
+    unsafe {
+        GetThreadTimes(
+            h_thread,
+            &mut creation_time,
+            &mut exit_time,
+            &mut kernel_time,
+            &mut user_time,
+        )?;
+    }
+
+    Ok((kernel_time, user_time))
 }

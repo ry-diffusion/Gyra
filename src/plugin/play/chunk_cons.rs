@@ -2,12 +2,11 @@
  * Greedy meshing constructor :3
 */
 use super::block_builder::{Block, Shape};
+use bevy::log::debug;
 use bevy::utils::HashSet;
 use bevy::{
-    log,
     log::info,
     math::{IVec3, Vec3},
-    pbr::StandardMaterial,
     prelude::Transform,
     utils::HashMap,
 };
@@ -270,7 +269,6 @@ impl<'a> ChunkConstructor<'a> {
         greedy(&mut chunk_arr, 16)
     }
 
-
     fn get_visible_faces(looking_at: Vec3, pos: Vec3) -> Vec<Face> {
         let mut faces = Vec::new();
         let mut directions = [
@@ -346,7 +344,7 @@ impl<'a> ChunkConstructor<'a> {
             .enumerate()
             .filter_map(|(idx, section)| Some((idx, section.as_ref()?)))
         {
-            info!("Rendering section: {idx}");
+            debug!("Rendering section: {idx}");
 
             let blocks = (0..16).flat_map(|x| {
                 (0..16).flat_map(move |y| {
@@ -415,7 +413,7 @@ impl<'a> ChunkConstructor<'a> {
 
                 let mut len_blocks = blocks.len();
 
-                info!("Face: {face:?} has {len_blocks}");
+                debug!("Face: {face:?} has {len_blocks}");
 
                 // let's render the top face
                 let mut quads = self.build_quads(Shape::Cube, blocks);
@@ -436,7 +434,7 @@ impl<'a> ChunkConstructor<'a> {
                 }
             }
 
-            info!(
+            debug!(
                 "Reduced %R from {} to {}, {:.2}% rendered!",
                 r.0,
                 r.1,

@@ -85,7 +85,7 @@ fn main() {
                     primary_window: Some(Window {
                         name: Some("Gyra".to_string()),
                         title: "Gyra".to_string(),
-                        present_mode: PresentMode::Immediate,
+                        present_mode: PresentMode::AutoNoVsync,
                         ..default()
                     }),
                     ..default()

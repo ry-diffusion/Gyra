@@ -78,6 +78,8 @@ fn update_active_chunks(
         let player_distance = ChunkVec2::new_global(translation.x, translation.z);
 
         for (chunk_pos, chunk) in &world_data.loaded_column {
+            // TODO: hmm, check by viewport?
+            // Like create a viewport and check if the chunk is within the viewport. ig it's better
             if is_chunk_within_view_distance(chunk_pos, &player_distance, view_distance.0 as _) {
                 columns.insert(*chunk_pos, chunk.clone());
             }

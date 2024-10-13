@@ -46,27 +46,32 @@ pub fn put_compressed_uncompressed<P: Packet>(
     writer: &mut impl Write,
     packet: &P,
 ) -> gyra_codec::error::Result<usize> {
-    let mut packet_buffer = vec![];
-    let mut data_buffer = vec![];
+    let mut packet_buff = vec![];
+    let mut staging_buff = vec![];
 
     /* Packet ID */
-    VarInt::from(P::ID).encode(&mut packet_buffer)?;
+    VarInt::from(P::ID).encode(&mut packet_buff)?;
 
     /* Packet Data */
-    packet.encode(&mut packet_buffer)?;
+    packet.encode(&mut packet_buff)?;
 
     // 1. Packet Length
-    VarInt::from(packet_buffer.len() as i32 + 1).encode(&mut data_buffer)?;
+    VarInt::from(packet_buff.len() as i32 + 1).encode(&mut staging_buff)?;
 
     // 2. Data Length
-    VarInt::from(0).encode(&mut data_buffer)?;
+    VarInt::from(0).encode(&mut staging_buff)?;
 
     // 3. Packet Data
-    packet_buffer.append(&mut data_buffer);
+    staging_buff.append(&mut packet_buff);
 
-    writer.write_all(&data_buffer)?;
+    debug!(
+        "Sending uncompressed packet of length: {} bytes.",
+        packet_buff.len()
+    );
 
-    Ok(packet_buffer.len())
+    writer.write_all(&staging_buff)?;
+
+    Ok(packet_buff.len())
 }
 
 pub fn put_compressed<P: Packet>(
@@ -173,10 +178,16 @@ macro_rules! mk_proto {
                 }
             }
         }
+
+       $(impl From<$packet> for $name {
+            fn from(packet: $packet) -> Self {
+                $name::$packet(packet)
+            }
+        })*
     };
 }
 
 mk_proto!(Proto => PingPong, StatusRequest, StatusResponse, Handshake,
-    LoginStart, LoginSuccess, SetCompression, KeepAlive, JoinGame, ChatMessage,
+    LoginStart, LoginSuccess, ServerKeepAlive, SetCompression, KeepAlive, JoinGame, ChatMessage,
     EntityRelativeMove, Entity, Disconnect, LoginDisconnect, SendChatMessage, PlayerLook,
     ChunkData, MapChunkBulk, PlayerPositionAndLook, PlayerPosition);

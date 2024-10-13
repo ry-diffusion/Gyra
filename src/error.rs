@@ -10,15 +10,6 @@ pub enum Error {
     #[error("NetworkThread Send error")]
     SendError,
 
-    #[error("Poisoned lock: {0}")]
-    PoisonedLock(String),
-
-    #[error("Network World is not initialized")]
-    NetworkWorldNotInitialized,
-
-    #[error("Disconnected from server")]
-    DisconnectChannel,
-
     #[error("Unable to parse JSON: {0}")]
     JsonParseError(#[from] serde_json::Error),
 

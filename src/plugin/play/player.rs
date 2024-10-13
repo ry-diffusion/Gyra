@@ -2,7 +2,6 @@ use crate::components::MainCamera;
 use crate::message::ClientMessage;
 use crate::plugin::consts::WorldLayer;
 use crate::state::AppState;
-use bevy::a11y::accesskit::Size;
 use bevy::color::palettes::css::WHITE;
 use bevy::core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle};
 use bevy::input::mouse::MouseMotion;
@@ -95,7 +94,7 @@ fn movement(
         direction += *transform.down();
     }
 
-    let new_movement = direction.normalize_or_zero() * time.delta().as_secs_f32() * 20.0;
+    let new_movement = direction.normalize_or_zero() * time.delta_seconds() * 20.0;
     transform.translation += new_movement;
 
     if old_position.distance(transform.translation) > 1.0 {
@@ -135,13 +134,14 @@ fn startup(mut commands: Commands, assets: Res<AssetServer>) {
                     ..default()
                 },
                 GpuCulling,
-                NoFrustumCulling, // MotionBlurBundle {
-                                  //     motion_blur: MotionBlur {
-                                  //         shutter_angle: 1.0,
-                                  //         samples: 2,
-                                  //     },
-                                  //     ..default()
-                                  // },
+                NoFrustumCulling,
+                MotionBlurBundle {
+                    motion_blur: MotionBlur {
+                        shutter_angle: 1.0,
+                        samples: 2,
+                    },
+                    ..default()
+                },
             ));
         })
         .id();
