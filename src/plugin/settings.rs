@@ -1,7 +1,4 @@
-use bevy::{
-    prelude::*,
-    window::WindowCloseRequested,
-};
+use bevy::{prelude::*, window::WindowCloseRequested};
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -92,8 +89,6 @@ fn startup(
         }
     }
 }
-
-use bevy::log;
 
 fn shutdown(
     mut exits: EventReader<AppExit>,

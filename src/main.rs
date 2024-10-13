@@ -7,12 +7,9 @@ mod resources;
 mod state;
 
 use crate::plugin::{CursorPlugin, NetworkPlugin, PlayPlugin};
-use bevy::core::TaskPoolThreadAssignmentPolicy;
 use bevy::render::pipelined_rendering::PipelinedRenderingPlugin;
-use bevy::render::view::RenderLayers;
 use bevy::window::PresentMode;
 use bevy::{
-    log,
     prelude::*,
     render::{
         settings::{Backends, InstanceFlags, WgpuSettings},
@@ -23,8 +20,53 @@ use bevy_cosmic_edit::CosmicPrimaryCamera;
 use components::MainCamera;
 use plugin::{ConnectingPlugin, LobbyPlugin, SettingsPlugin};
 use state::AppState;
+use std::env::args;
 
 const SKY_COLOR: Color = Color::srgb(0.69, 0.69, 0.69);
+
+/*
+args:
+    -dx12: use dx12 backend
+    -vulkan: use vulkan backend
+    -metal: use metal backend
+    -gl: use opengl backend
+
+-auto: use the first primary backend that is available
+*/
+fn get_backend_from_env() -> Backends {
+    let args: Vec<String> = args().collect();
+    let mut backend = Backends::empty();
+
+    for arg in args {
+        match arg.as_str() {
+            "-dx12" => backend |= Backends::DX12,
+            "-vulkan" => backend |= Backends::VULKAN,
+            "-metal" => backend |= Backends::METAL,
+            "-gl" => backend |= Backends::GL,
+            "-auto" => {
+                backend |= Backends::DX12;
+                backend |= Backends::VULKAN;
+                backend |= Backends::METAL;
+                backend |= Backends::GL;
+            }
+            _ => {}
+        }
+    }
+
+    if backend.is_empty() {
+        #[cfg(windows)]
+        {
+            backend |= Backends::DX12;
+        }
+
+        #[cfg(not(windows))]
+        {
+            backend |= Backends::VULKAN | Backends::METAL | Backends::GL;
+        }
+    }
+
+    backend
+}
 
 fn main() {
     App::new()
@@ -32,7 +74,7 @@ fn main() {
             DefaultPlugins
                 .set(RenderPlugin {
                     render_creation: WgpuSettings {
-                        backends: Some(Backends::PRIMARY | Backends::SECONDARY),
+                        backends: Some(get_backend_from_env()),
                         instance_flags: InstanceFlags::ALLOW_UNDERLYING_NONCOMPLIANT_ADAPTER,
                         ..default()
                     }
@@ -43,7 +85,7 @@ fn main() {
                     primary_window: Some(Window {
                         name: Some("Gyra".to_string()),
                         title: "Gyra".to_string(),
-                        present_mode: PresentMode::Mailbox,
+                        present_mode: PresentMode::Immediate,
                         ..default()
                     }),
                     ..default()

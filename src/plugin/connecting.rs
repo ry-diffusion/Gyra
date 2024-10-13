@@ -3,7 +3,7 @@ use gyra_codec::packet::When;
 
 use crate::message::ServerMessage;
 use crate::plugin::network::transport::NetworkTransport;
-use crate::plugin::{ChangedState, ErrorFound};
+use crate::plugin::ChangedState;
 use crate::resources::DisconnectedReason;
 use crate::{resources::CurrentServerAddress, state::AppState};
 

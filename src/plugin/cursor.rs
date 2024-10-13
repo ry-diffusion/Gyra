@@ -1,4 +1,3 @@
-use bevy::math::DVec2;
 use bevy::prelude::*;
 use bevy::window::{Cursor, CursorGrabMode, PrimaryWindow};
 
@@ -43,7 +42,6 @@ fn state_handler(
                 ..default()
             };
             primary_window.cursor = cursor;
-
         } else {
             primary_window.cursor.grab_mode = CursorGrabMode::None;
             primary_window.cursor.visible = true;

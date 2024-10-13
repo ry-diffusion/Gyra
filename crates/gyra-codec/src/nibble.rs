@@ -1,5 +1,3 @@
-use crate::coding::Decoder;
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct NibbleArray {
     data: Vec<u8>,

@@ -14,5 +14,13 @@ opt-level = 3
 rustflags = [
   # (Nightly) Make the current crate share its generic instantiations
   "-Zshare-generics=y",
-  "-Zthreads=8",                              # (Nightly) Use improved multithreading with the recommended amount of threads.
+  "-Zthreads=0",                              # (Nightly) Use improved multithreading with the recommended amount of threads.
+]
+
+
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+rustflags = [
+  "-Zshare-generics=y",
+  "-Zthreads=0",
 ]

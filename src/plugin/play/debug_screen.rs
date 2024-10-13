@@ -1,5 +1,6 @@
+use std::process::id;
+
 use crate::components::MainCamera;
-use crate::main;
 use crate::plugin::play::player;
 use crate::plugin::play::player::WorldModelCamera;
 use crate::plugin::play::world::{ActivePlayerChunks, ShownPlayerChunks, WorldChunkData};
@@ -7,6 +8,7 @@ use crate::state::AppState;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
+use bevy::render::renderer::RenderAdapterInfo;
 use bevy::render::view::VisibleEntities;
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind};
 
@@ -40,19 +42,23 @@ struct DiagnosticsTimer {
 }
 
 #[derive(Event)]
-pub struct DiagnosticsText {
+pub struct DiagnosticReport {
     pub compute: f32,
     pub async_compute: f32,
     pub io: f32,
+    pub main: f32,
 
     // bytes
     pub memory_usage: u64,
+
+    // bytes
+    pub avaliable_memory: u64,
 }
 
 pub fn plugin(app: &mut App) {
     app.add_plugins(FrameTimeDiagnosticsPlugin)
         .add_systems(Startup, spawn)
-        .add_event::<DiagnosticsText>()
+        .add_event::<DiagnosticReport>()
         .insert_resource(DiagnosticsTimer {
             timer: Timer::from_seconds(1.0, TimerMode::Repeating),
         })
@@ -143,14 +149,15 @@ fn update_position_data(
     let transform = player_transform.single();
     let pos = transform.translation;
     let rot = transform.rotation;
-    position_text.sections[1].value = format!(
+    position_text.sections[1].value =
+        format!(
         " map: {:>2.0}/{:>2.0}/{:>2.0}, rot: {:>2.0}/{:>2.0}/{:>2.0}/{:>2.0}, chk: {:>2.0}/{:>2.0}",
         pos.x, pos.y, pos.z, rot.x, rot.y, rot.z, rot.w,
         (pos.x / 16.0).floor(), (pos.z / 16.0).floor()
     );
 }
 
-fn spawn(mut commands: Commands) {
+fn spawn(mut commands: Commands, rd: Res<RenderAdapterInfo>) {
     commands
         .spawn(NodeBundle {
             background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
@@ -311,11 +318,10 @@ fn spawn(mut commands: Commands) {
             })
             .insert(ChunkText);
 
-
             p.spawn(TextBundle {
                 text: Text::from_sections([
                     TextSection::new(
-                        "Memory",
+                        "RAM",
                         TextStyle {
                             font_size: 12.0,
                             color: Color::from(bevy::color::palettes::tailwind::PINK_100),
@@ -330,11 +336,58 @@ fn spawn(mut commands: Commands) {
                             ..default()
                         },
                     ),
+                    TextSection::new(
+                        " N/A",
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::GREEN_200),
+                            ..default()
+                        },
+                    ),
+                    TextSection::new(
+                        " N/A",
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::BLUE_200),
+                            ..default()
+                        },
+                    ),
                 ]),
 
                 ..default()
             })
-                .insert(MemoryUsageText);
+            .insert(MemoryUsageText);
+
+            p.spawn(TextBundle {
+                text: Text::from_sections([
+                    TextSection::new(
+                        "GPU",
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::BLUE_100),
+                            ..default()
+                        },
+                    ),
+                    TextSection::new(
+                        format!(" {:?} ", rd.backend),
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::PURPLE_200),
+                            ..default()
+                        },
+                    ),
+                    TextSection::new(
+                        rd.name.clone(),
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::GREEN_200),
+                            ..default()
+                        },
+                    ),
+                ]),
+
+                ..default()
+            });
 
             p.spawn(TextBundle {
                 text: Text::from_sections([
@@ -370,12 +423,18 @@ fn spawn(mut commands: Commands) {
                             ..default()
                         },
                     ),
+                    TextSection::new(
+                        " N/A",
+                        TextStyle {
+                            font_size: 12.0,
+                            color: Color::from(bevy::color::palettes::tailwind::RED_100),
+                            ..default()
+                        },
+                    ),
                 ]),
-
                 ..default()
             })
             .insert(CpuText);
-
         })
         .insert(Menu);
 
@@ -410,22 +469,28 @@ fn debug_screen_handler(
 fn update_diagnostics_text(
     mut cpu_q: Query<&mut Text, With<CpuText>>,
     mut mem_q: Query<&mut Text, (With<MemoryUsageText>, Without<CpuText>)>,
-    mut events: EventReader<DiagnosticsText>,
+    mut events: EventReader<DiagnosticReport>,
 ) {
     let mut cpu = cpu_q.single_mut();
     let mut mem = mem_q.single_mut();
 
     for event in events.read() {
+        let percent = (100.0 * event.memory_usage as f32) / event.avaliable_memory as f32;
+
         cpu.sections[1].value = format!(" C: {:.2}%", event.compute);
         cpu.sections[2].value = format!(" AC: {:.2}%", event.async_compute);
         cpu.sections[3].value = format!(" IO: {:.2}%", event.io);
+        cpu.sections[4].value = format!(" M: {:.2}%", event.main);
 
-        mem.sections[1].value = format!(" {:.2} MB", event.memory_usage / 1024 / 1024);
+        mem.sections[1].value = format!(" {:.2}%", percent);
+        mem.sections[2].value = format!(" used: {:.2} MB", event.memory_usage / 1024 / 1024);
+        mem.sections[3].value = format!(" free: {:.2} MB", event.avaliable_memory / 1024 / 1024);
     }
 }
 
+#[cfg(unix)]
 fn update_diagnostics_values(
-    mut cpu_writer: EventWriter<DiagnosticsText>,
+    mut cpu_writer: EventWriter<DiagnosticReport>,
     mut timer: ResMut<DiagnosticsTimer>,
     time: Res<Time>,
     mut system: Local<Option<sysinfo::System>>,
@@ -440,6 +505,8 @@ fn update_diagnostics_values(
     let myself = Pid::from(std::process::id() as usize);
 
     if timer.timer.finished() {
+        let avaliable_memory = system.available_memory();
+
         let mut children = vec![];
 
         for (nm, proc) in system.processes() {
@@ -456,24 +523,30 @@ fn update_diagnostics_values(
         let mut compute = vec![];
         let mut async_compute = vec![];
         let mut io = vec![];
+        let mut main = vec![];
 
         for pid in children {
             let proc = system.process(*pid).unwrap();
             let name = proc.name().to_string_lossy();
             if name.starts_with("Compute") {
+                bevy::log::info!("Compute CPU Usage: {:?}", proc.cpu_usage());
                 compute.push(proc.cpu_usage());
             } else if name.contains("Async") {
                 async_compute.push(proc.cpu_usage());
             } else if name.contains("IO") {
                 io.push(proc.cpu_usage());
+            } else if name.contains("main") {
+                main.push(proc.cpu_usage());
             }
         }
 
-        cpu_writer.send(DiagnosticsText {
+        cpu_writer.send(DiagnosticReport {
             compute: compute.iter().sum::<f32>() / compute.len() as f32,
             async_compute: async_compute.iter().sum::<f32>() / async_compute.len() as f32,
             io: io.iter().sum::<f32>() / io.len() as f32,
+            main: main.iter().sum::<f32>() / main.len() as f32,
             memory_usage,
+            avaliable_memory,
         });
 
         system.refresh_specifics(
@@ -483,4 +556,142 @@ fn update_diagnostics_values(
                 .with_processes(ProcessRefreshKind::everything()),
         );
     }
+}
+
+#[cfg(windows)]
+fn update_diagnostics_values(
+    mut cpu_writer: EventWriter<DiagnosticReport>,
+    mut timer: ResMut<DiagnosticsTimer>,
+    time: Res<Time>,
+    mut system: Local<Option<sysinfo::System>>,
+) {
+    timer.timer.tick(time.delta());
+
+    if system.is_none() {
+        system.replace(sysinfo::System::new());
+    }
+
+    let system = system.as_mut().unwrap();
+
+    if timer.timer.finished() {
+        let avaliable_memory = system.available_memory();
+
+        let myself = Pid::from(std::process::id() as usize);
+
+        let Some(myself_proc) = system.process(myself) else {
+            // Are you sure that you don't know me? I'm the main process! Try again kiddo.
+            system.refresh_specifics(
+                RefreshKind::new()
+                    .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+                    .with_memory(MemoryRefreshKind::new().with_ram())
+                    .with_processes(ProcessRefreshKind::everything()),
+            );
+            return;
+        };
+
+        let memory_usage = myself_proc.memory();
+
+        // Why are you felling so insecure? I'm just trying to get some information about you.
+        let (compute, async_compute, io, main) = unsafe { collect_windows_thread_usage().unwrap() };
+
+        cpu_writer.send(DiagnosticReport {
+            compute,
+            async_compute,
+            io,
+            main,
+            memory_usage,
+            avaliable_memory,
+        });
+
+        system.refresh_specifics(
+            RefreshKind::new()
+                .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+                .with_memory(MemoryRefreshKind::new().with_ram())
+                .with_processes(ProcessRefreshKind::everything()),
+        );
+    }
+}
+
+#[cfg(windows)]
+unsafe fn collect_windows_thread_usage() -> windows::core::Result<(f32, f32, f32, f32)> {
+    use std::mem::size_of;
+    use windows::Win32::System::Diagnostics::ToolHelp::CreateToolhelp32Snapshot;
+    use windows::Win32::System::Diagnostics::ToolHelp::{
+        Thread32First, Thread32Next, TH32CS_SNAPTHREAD, THREADENTRY32,
+    };
+    use windows::Win32::System::Threading::{GetThreadDescription, GetThreadTimes, OpenThread};
+
+    let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0)?;
+
+    let mut entry = THREADENTRY32 {
+        dwSize: size_of::<THREADENTRY32>() as u32,
+        ..Default::default()
+    };
+
+    Thread32First(snapshot, &mut entry)?;
+
+    let mut cpu_usage = vec![];
+    let mut async_cpu_usage = vec![];
+    let mut io_usage = vec![];
+    let mut main_cpu = vec![];
+
+    loop {
+        if entry.th32OwnerProcessID == id() {
+            // Hey, how are you?
+            let h_thread = OpenThread(
+                windows::Win32::System::Threading::THREAD_QUERY_INFORMATION,
+                false,
+                entry.th32ThreadID,
+            )?;
+
+            // What is your name?
+            let name = GetThreadDescription(h_thread)?;
+
+            // No.. No.. What is your *real* name? MARCOOOO
+            let real_name = name.to_string()?;
+
+            let mut creation_time = windows::Win32::Foundation::FILETIME::default();
+            let mut exit_time = windows::Win32::Foundation::FILETIME::default();
+            let mut kernel_time = windows::Win32::Foundation::FILETIME::default();
+            let mut user_time = windows::Win32::Foundation::FILETIME::default();
+
+            /* Now that we bought a Rolex we should use it to get time! yay :D */
+            GetThreadTimes(
+                h_thread,
+                &mut creation_time,
+                &mut exit_time,
+                &mut kernel_time,
+                &mut user_time,
+            )?;
+
+            let time = duration_to_f32(kernel_time) + duration_to_f32(user_time);
+
+            if real_name.starts_with("Compute") {
+                cpu_usage.push(time);
+            } else if real_name.contains("Async") {
+                async_cpu_usage.push(time);
+            } else if real_name.contains("IO") {
+                io_usage.push(time);
+            } else {
+                main_cpu.push(time);
+            }
+        }
+
+        if Thread32Next(snapshot, &mut entry).is_err() {
+            break;
+        }
+    }
+
+    Ok((
+        cpu_usage.iter().sum::<f32>() / cpu_usage.len() as f32,
+        async_cpu_usage.iter().sum::<f32>() / async_cpu_usage.len() as f32,
+        io_usage.iter().sum::<f32>() / io_usage.len() as f32,
+        main_cpu.iter().sum::<f32>() / main_cpu.len() as f32,
+    ))
+}
+
+#[cfg(windows)]
+fn duration_to_f32(time: windows::Win32::Foundation::FILETIME) -> f32 {
+    let duration = ((time.dwHighDateTime as u64) << 32) | time.dwLowDateTime as u64;
+    (duration as f32) / 10_000_000.0 // Convert 100-ns intervals to seconds.
 }
