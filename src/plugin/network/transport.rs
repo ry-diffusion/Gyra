@@ -128,9 +128,6 @@ impl NetworkTransport {
 
         let stream = TcpStream::connect_timeout(&addr, Duration::from_millis(1500))?;
 
-        // stream.set_nonblocking(true)?;
-        // stream.set_nodelay(true)?;
-
         let addr = stream.peer_addr()?;
 
         Ok(Self::new(stream, addr))

@@ -1,15 +1,12 @@
-use std::time::Instant;
-
 use super::chunk_cons::ChunkConstructor;
 use crate::plugin::consts::WorldLayer;
 use crate::plugin::play::player::Player;
 use crate::plugin::play::world::{ActivePlayerChunks, ShownPlayerChunks, WorldChunkData};
 use crate::state::AppState;
-use bevy::pbr::wireframe::Wireframe;
 use bevy::prelude::*;
-use bevy::render::mesh::{Indices, VertexAttributeValues};
+use bevy::render::mesh::Indices;
 use bevy::render::render_asset::RenderAssetUsages;
-use bevy::render::render_resource::{Face, PrimitiveTopology};
+use bevy::render::render_resource::PrimitiveTopology;
 use bevy::tasks::{block_on, poll_once, AsyncComputeTaskPool, Task};
 use bevy::utils::{HashMap, HashSet};
 use gyra_proto::distance::ChunkVec2;
@@ -105,7 +102,7 @@ fn build_material_by_color(base_color: Color) -> StandardMaterial {
 
         alpha_mode: AlphaMode::Blend,
         double_sided: false,
-        cull_mode:  None,
+        cull_mode: None,
         ..default()
     }
 }

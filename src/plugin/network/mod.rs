@@ -102,7 +102,7 @@ fn process_packets(
                     }
 
                     Err(Error::Codec(CodecError::IllegalPacket(pkg, when))) => {
-                        log::warn!("Illegal packet received: {pkg:?} when {when:?}");
+                        // log::warn!("Illegal packet received: {pkg:?} when {when:?}");
                     }
 
                     Err(e) => {

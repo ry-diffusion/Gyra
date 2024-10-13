@@ -1,4 +1,3 @@
-use crate::components::MainCamera;
 use crate::message::ClientMessage;
 use crate::plugin::consts::WorldLayer;
 use crate::state::AppState;
@@ -7,9 +6,7 @@ use bevy::core_pipeline::motion_blur::{MotionBlur, MotionBlurBundle};
 use bevy::input::mouse::MouseMotion;
 use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
-use bevy::render::view::{
-    GpuCulling, NoCpuCulling, NoFrustumCulling, RenderLayers, VisibleEntities,
-};
+use bevy::render::view::{GpuCulling, NoFrustumCulling};
 
 #[derive(Debug, Component)]
 pub(crate) struct Player;
@@ -39,22 +36,13 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-fn cleanup(mut commands: Commands, player: Res<PlayerEntity>) {
-    // for (main_entity, player, entities) in player_q.iter() {
-    //     entities.entities.iter().for_each(|(_, entities)| {
-    //         entities.iter().for_each(|entity| {
-    //             commands.entity(*entity).despawn_recursive();
-    //         });
-    //     });
-    //
-    //
-    //
-    //     commands.entity(main_entity).despawn_recursive();
-    //
-    //}
-
+fn cleanup(mut commands: Commands, player: Res<PlayerEntity>, aim_q: Query<Entity, With<Aim>>) {
     commands.entity(player.entity).despawn_descendants();
     commands.entity(player.entity).despawn_recursive();
+
+    for entity in aim_q.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
 
     commands.remove_resource::<PlayerEntity>();
 }

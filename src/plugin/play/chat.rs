@@ -79,22 +79,12 @@ pub fn spawn_renderer(
                 max_height: Val::Percent(50.0),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::FlexStart,
+                top: Val::Percent(50.0),
                 ..default()
             },
             ..Default::default()
         })
         .with_children(|p| {
-            p.spawn(ButtonBundle {
-                style: Style {
-                    height: Val::Px(40.0),
-                    width: Val::Percent(100.0),
-                    ..default()
-                },
-                ..default()
-            })
-            .insert(CosmicSource(text_edit))
-            .insert(ChatInputUI);
-
             p.spawn(TextBundle {
                 text: Text::from_section(
                     "",
@@ -115,6 +105,16 @@ pub fn spawn_renderer(
             .insert(ChatEditor {
                 timer: Timer::new(Duration::from_secs(5), TimerMode::Repeating),
             });
+            p.spawn(ButtonBundle {
+                style: Style {
+                    height: Val::Px(40.0),
+                    width: Val::Percent(100.0),
+                    ..default()
+                },
+                ..default()
+            })
+            .insert(CosmicSource(text_edit))
+            .insert(ChatInputUI);
         })
         .insert(ChatComponent);
 }
@@ -223,7 +223,9 @@ pub fn handle_buffered_text(
             let dropped = chat_buffer.shown_buffer.remove(0);
             chat_buffer.buffer.push(dropped);
         }
+    }
 
+    if chat_buffer.is_changed() {
         let mut buffer = String::new();
         for line in chat_buffer.shown_buffer.iter() {
             buffer.push_str(line);
@@ -255,6 +257,7 @@ pub fn handle_new_chat_messages(
             }
             Err(e) => {
                 info!("Failed to parse chat message: {}", message.raw_object);
+                chat_buffer.shown_buffer.push("?? Failed to parse chat message ??".to_string());
                 error!("{e:?}");
             }
         }

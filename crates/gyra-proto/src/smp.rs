@@ -1,9 +1,7 @@
 // The Minecraft SMP Format is a format used by Minecraft to store the world data.
 
-use crate::play::ChunkMetadata;
 use gyra_codec::coding::{Decoder, Encoder};
 use gyra_codec::nibble::NibbleArray;
-use gyra_codec::variadic_int::VarInt;
 use std::io::Read;
 
 #[derive(Clone, Eq, Copy, Debug, PartialEq, Default)]

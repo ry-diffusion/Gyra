@@ -3,18 +3,13 @@
 */
 use super::block_builder::{Block, Shape};
 use bevy::log::debug;
-use bevy::utils::HashSet;
 use bevy::{
-    log::info,
     math::{IVec3, Vec3},
     prelude::Transform,
     utils::HashMap,
 };
 use gyra_proto::smp;
-use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;
-use std::iter::{Filter, FlatMap, Map};
-use std::ops::Range;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Face {
@@ -93,7 +88,7 @@ fn greedy(input: &mut [u16; 16], lod_size: u32) -> Vec<Quad> {
                 x: row as u32,
                 y,
                 width: width as u32,
-                height: height,
+                height,
             });
 
             y += height;
@@ -257,7 +252,7 @@ impl<'a> ChunkConstructor<'a> {
         let mut chunk_arr = [0u16; 16];
 
         /* Now we need to transform the plane_2d into a binary data */
-        for (pos, (block, id)) in plane_2d {
+        for (pos, (block, _id)) in plane_2d {
             let x = pos.x as usize;
             let z = pos.z as usize;
 
@@ -295,7 +290,7 @@ impl<'a> ChunkConstructor<'a> {
         section: usize,
     ) -> HashMap<Face, HashMap<IVec3, (Block, u16)>> {
         let mut faces = HashMap::new();
-        let mut directions = [
+        let directions = [
             (Face::Top, IVec3::new(0, 1, 0)),
             (Face::Bottom, IVec3::new(0, -1, 0)),
             (Face::Left, IVec3::new(-1, 0, 0)),
@@ -303,7 +298,7 @@ impl<'a> ChunkConstructor<'a> {
         ];
 
         for (pos, (block, id)) in blocks {
-            let mut add_face =
+            let add_face =
                 |face: &mut HashMap<IVec3, (Block, u16)>, pos: IVec3, block: Block, id: u16| {
                     face.insert(pos, (block, id));
                 };
@@ -383,7 +378,7 @@ impl<'a> ChunkConstructor<'a> {
              * and the block above is solid
              */
 
-            let mut faces = self.slice_chunk_into_faces(edge.clone(), idx);
+            let faces = self.slice_chunk_into_faces(edge.clone(), idx);
 
             // /* print lowest btm  coord */
             //
@@ -411,13 +406,13 @@ impl<'a> ChunkConstructor<'a> {
                     continue;
                 }
 
-                let mut len_blocks = blocks.len();
+                let len_blocks = blocks.len();
 
                 debug!("Face: {face:?} has {len_blocks}");
 
                 // let's render the top face
-                let mut quads = self.build_quads(Shape::Cube, blocks);
-                let mut face = Self::quads_to_mesh(face, &quads);
+                let quads = self.build_quads(Shape::Cube, blocks);
+                let face = Self::quads_to_mesh(face, &quads);
 
                 r.0 += len_blocks;
                 r.1 += face.len();

@@ -2,7 +2,6 @@ use crate::smp;
 use gyra_codec::coding::{Decoder, Encoder};
 use gyra_codec::variadic_int::VarInt;
 use gyra_macros::{packet, CodecDecode, CodecEncode};
-use std::collections::HashSet;
 use log::debug;
 
 #[derive(Clone, Debug, PartialEq, CodecDecode, CodecEncode)]

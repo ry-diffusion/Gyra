@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::window::{Cursor, CursorGrabMode, PrimaryWindow};
+use bevy::window::{CursorGrabMode, PrimaryWindow};
 
 #[derive(Debug, Resource)]
 pub struct CursorState {
@@ -17,7 +17,7 @@ impl Plugin for CursorPlugin {
     }
 }
 
-fn startup(mut commands: Commands, mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
+fn startup(mut commands: Commands) {
     commands.insert_resource(CursorState { is_locked: false });
 }
 
@@ -46,14 +46,14 @@ fn state_handler(
 }
 
 fn recenter(
-    mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
+    mut win_q: Query<&mut Window, With<PrimaryWindow>>,
     cursor_state: Res<CursorState>,
 ) {
     if !cursor_state.is_locked {
         return;
     }
 
-    let mut primary_window = q_windows.single_mut();
+    let mut primary_window = win_q.single_mut();
     let center = Vec2::new(primary_window.width() / 2.0, primary_window.height() / 2.0);
 
     primary_window.set_cursor_position(Some(center));

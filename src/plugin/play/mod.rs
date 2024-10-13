@@ -1,5 +1,4 @@
 use crate::message::{ClientMessage, ServerMessage};
-use crate::plugin::play::chat::ChatComponent;
 use crate::plugin::transport::NetworkTransport;
 use crate::plugin::CursorState;
 use crate::resources::DisconnectedReason;
@@ -108,8 +107,3 @@ fn handle_server_messages(
     }
 }
 
-// pub fn cleanup(mut commands: Commands, chat: Query<Entity, With<ChatComponent>>) {
-//     for e in chat.iter() {
-//         commands.entity(e).despawn_recursive();
-//     }
-// }

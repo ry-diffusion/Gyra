@@ -1,7 +1,7 @@
 use crate::smp;
 use gyra_codec::coding::{Decoder, Encoder};
 use gyra_codec::variadic_int::VarInt;
-use gyra_macros::{packet, CodecDecode, CodecEncode};
+use gyra_macros::packet;
 
 #[derive(Clone, Debug, PartialEq)]
 #[packet(id: 0x21, when: Play)]
@@ -43,7 +43,7 @@ impl Decoder for ChunkData {
 }
 
 impl Encoder for ChunkData {
-    fn encode<W: std::io::Write>(&self, writer: &mut W) -> gyra_codec::error::Result<usize> {
+    fn encode<W: std::io::Write>(&self, _writer: &mut W) -> gyra_codec::error::Result<usize> {
         unreachable!("ChunkData is not a packet that should be sent by the client")
     }
 }
