@@ -354,13 +354,10 @@ fn render_chunks(
         let block = block.to_owned();
 
         to_spawn.push((
-            MaterialMeshBundle {
-                mesh: meshes.add(block.mesh),
-                material: materials_pre.get_material_by_block_id(block.material_id),
-                transform: block.transform,
-                ..Default::default()
-            },
+            Mesh3d(meshes.add(block.mesh)),
+            MeshMaterial3d(materials_pre.get_material_by_block_id(block.material_id)),
             WorldLayer,
+            block.transform,
             ParentChunk {
                 of: block.parent_chunk,
             },

@@ -1,8 +1,11 @@
 use crate::plugin::play::chat_proto;
 use crate::state::AppState;
-use bevy::prelude::*;
+use bevy::{prelude::*, text::CosmicBuffer};
 use bevy_cosmic_edit::*;
+use cosmic_text::{Attrs, Cursor, Edit, Family, Metrics};
+use prelude::TextEdit2d;
 use std::time::Duration;
+use utils::ColorExtras;
 
 #[derive(Event, Debug)]
 pub struct NewRawChatMessage {
@@ -51,30 +54,10 @@ pub fn spawn_renderer(
         .color(bevy::color::palettes::basic::WHITE.to_cosmic())
         .family(Family::Monospace);
 
-    let text_edit = commands
-        .spawn(CosmicEditBundle {
-            default_attrs: DefaultAttrs(AttrsOwned::new(attrs)),
-            max_lines: MaxLines(1),
-            max_chars: MaxChars(100),
-            fill_color: CosmicBackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
-            cursor_color: CursorColor(Color::WHITE),
-            text_position: CosmicTextAlign::Left { padding: 12 },
-
-            buffer: CosmicBuffer::new(&mut font_system, Metrics::new(20., 20.)).with_rich_text(
-                &mut font_system,
-                vec![("", attrs)],
-                attrs,
-            ),
-
-            ..Default::default()
-        })
-        .insert(ChatInputText)
-        .id();
-
     commands
-        .spawn(NodeBundle {
-            background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
-            style: Style {
+        .spawn((
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+            Node {
                 width: Val::Percent(30.0),
                 max_height: Val::Percent(50.0),
                 flex_direction: FlexDirection::Column,
@@ -82,39 +65,33 @@ pub fn spawn_renderer(
                 top: Val::Percent(50.0),
                 ..default()
             },
-            ..Default::default()
-        })
+        ))
         .with_children(|p| {
-            p.spawn(TextBundle {
-                text: Text::from_section(
-                    "",
-                    TextStyle {
-                        font: chat_font.clone(),
-                        font_size: 20.0,
-                        color: Color::WHITE,
-                    },
-                ),
-
-                style: Style {
-                    max_width: Val::Percent(100.0),
-                    ..default()
-                },
-
-                ..Default::default()
-            })
+            p.spawn((
+                Text::new("Welcome to Gyra!"),
+                TextFont::from_font(chat_font.clone()).with_font_size(20.0),
+            ))
             .insert(ChatEditor {
                 timer: Timer::new(Duration::from_secs(5), TimerMode::Repeating),
             });
-            p.spawn(ButtonBundle {
-                style: Style {
-                    height: Val::Px(40.0),
-                    width: Val::Percent(100.0),
-                    ..default()
-                },
-                ..default()
-            })
-            .insert(CosmicSource(text_edit))
-            .insert(ChatInputUI);
+
+            /* TODO: Store UI ID */
+            let ui_id = p
+                .spawn((
+                    TextEdit2d,
+                    MaxLines(1),
+                    MaxChars(100),
+                    ChatInputText,
+                    CosmicBackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+                    CursorColor(Color::WHITE),
+                    CosmicTextAlign::Left { padding: 12 },
+                    CosmicEditBuffer::new(&mut font_system, Metrics::new(20., 20.)).with_rich_text(
+                        &mut font_system,
+                        vec![("", attrs)],
+                        attrs,
+                    ),
+                ))
+                .id();
         })
         .insert(ChatComponent);
 }
@@ -130,20 +107,22 @@ fn startup(mut commands: Commands) {
 
 fn chat_key_handler(
     keys: Res<ButtonInput<KeyCode>>,
-    mut editor_container: Query<(&mut Visibility, &mut Style), With<ChatInputUI>>,
+    mut editor_container: Query<(&mut Visibility, &mut Node), With<ChatInputUI>>,
     mut editor: Query<&mut CosmicEditor, With<ChatInputText>>,
-    mut source: Query<&CosmicSource, With<ChatInputUI>>,
+
+    // TODO: Replace to a Resource or a component.
+    // mut source: Query<&CosmicSource, With<ChatInputUI>>,
     mut focused_widget: ResMut<FocusedWidget>,
     mut chat_writer: EventWriter<ChatMessage>,
 ) {
     let mut is_focused = false;
-    if let Some(focused) = focused_widget.0 {
-        for source in source.iter() {
-            if source.0 == focused {
-                is_focused = true;
-            }
-        }
-    }
+    // if let Some(focused) = focused_widget.0 {
+    //     for source in source.iter() {
+    //         if source.0 == focused {
+    //             is_focused = true;
+    //         }
+    //     }
+    // }
 
     for (mut visibility, mut style) in &mut editor_container.iter_mut() {
         if keys.just_pressed(KeyCode::Enter) && is_focused {
@@ -153,7 +132,7 @@ fn chat_key_handler(
             *focused_widget = FocusedWidget(None);
 
             for mut editor in &mut editor.iter_mut() {
-                let text = editor.with_buffer(|b| b.get_text());
+                let text = editor.with_buffer(|b| b.lines[0].text().to_string());
 
                 // no empty messages :O
                 if text.is_empty() {
@@ -184,9 +163,9 @@ fn chat_key_handler(
                 *visibility = Visibility::Visible;
                 style.height = Val::Px(40.0);
 
-                for source in &mut source.iter_mut() {
-                    *focused_widget = FocusedWidget(Some(source.0));
-                }
+                // for source in &mut source.iter_mut() {
+                //     *focused_widget = FocusedWidget(Some(source.0));
+                // }
 
                 for mut editor in &mut editor.iter_mut() {
                     clear_buffer(&mut editor);
@@ -232,7 +211,7 @@ pub fn handle_buffered_text(
             buffer.push('\n');
         }
 
-        text.sections[0].value = buffer;
+        text.0 = buffer;
     }
 }
 
@@ -257,7 +236,9 @@ pub fn handle_new_chat_messages(
             }
             Err(e) => {
                 info!("Failed to parse chat message: {}", message.raw_object);
-                chat_buffer.shown_buffer.push("?? Failed to parse chat message ??".to_string());
+                chat_buffer
+                    .shown_buffer
+                    .push("?? Failed to parse chat message ??".to_string());
                 error!("{e:?}");
             }
         }

@@ -31,30 +31,30 @@ fn key_handler(keys: Res<ButtonInput<KeyCode>>, mut cursor_state: ResMut<CursorS
 
 fn state_handler(
     cursor_state: ResMut<CursorState>,
-    mut q_windows: Query<&mut Window, With<PrimaryWindow>>,
+    mut primary_window: Single<&mut Window, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
     if cursor_state.is_changed() {
-        let mut primary_window = q_windows.single_mut();
-
         if cursor_state.is_locked {
-            primary_window.cursor.grab_mode = CursorGrabMode::Locked;
-            primary_window.cursor.visible = false;
+            primary_window.cursor_options.grab_mode = CursorGrabMode::Locked;
+            primary_window.cursor_options.visible = false;
             commands.insert_resource(CursorPluginDisabled);
         } else {
-            primary_window.cursor.grab_mode = CursorGrabMode::None;
-            primary_window.cursor.visible = true;
+            primary_window.cursor_options.grab_mode = CursorGrabMode::None;
+            primary_window.cursor_options.visible = true;
             commands.remove_resource::<CursorPluginDisabled>();
         }
     }
 }
 
-fn recenter(mut win_q: Query<&mut Window, With<PrimaryWindow>>, cursor_state: Res<CursorState>) {
+fn recenter(
+    mut primary_window: Single<&mut Window, With<PrimaryWindow>>,
+    cursor_state: Res<CursorState>,
+) {
     if !cursor_state.is_locked {
         return;
     }
 
-    let mut primary_window = win_q.single_mut();
     let center = Vec2::new(primary_window.width() / 2.0, primary_window.height() / 2.0);
 
     primary_window.set_cursor_position(Some(center));

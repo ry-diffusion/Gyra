@@ -105,8 +105,8 @@ fn main() {
         .add_systems(
             Update,
             (
-                bevy_cosmic_edit::change_active_editor_ui,
-                bevy_cosmic_edit::deselect_editor_on_esc,
+                bevy_cosmic_edit::utils::change_active_editor_ui,
+                bevy_cosmic_edit::utils::deselect_editor_on_esc,
             ),
         )
         .insert_resource(ClearColor(SKY_COLOR))

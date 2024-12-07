@@ -3,11 +3,12 @@ use bevy::{
     tasks::{block_on, poll_once, IoTaskPool, Task},
     utils::HashMap,
 };
-use bevy_cosmic_edit::{
-    Attrs, AttrsOwned, BufferExtras, ColorExtras, CosmicBuffer, CosmicEditBundle, CosmicEditor,
-    CosmicFontSystem, CosmicSource, CosmicTextChanged, DefaultAttrs, Edit, FocusedWidget, InputSet,
-    MaxChars, MaxLines, Metrics,
-};
+use bevy_cosmic_edit::cosmic_text::{Attrs, Edit, Metrics};
+use bevy_cosmic_edit::prelude::*;
+use bevy_cosmic_edit::utils::ColorExtras;
+use bevy_cosmic_edit::CosmicTextChanged;
+use bevy_cosmic_edit::{InputSet, MaxChars, MaxLines};
+
 use serde_json::Value;
 
 use super::{transport::NetworkTransport, ErrorFound};
@@ -99,42 +100,34 @@ pub fn lobby_startup(
     let attrs = Attrs::new().color(bevy::color::palettes::basic::GRAY.to_cosmic());
 
     let nickname_edit = commands
-        .spawn(CosmicEditBundle {
-            default_attrs: DefaultAttrs(AttrsOwned::new(attrs)),
-            max_lines: MaxLines(1),
-            max_chars: MaxChars(16),
-
-            buffer: CosmicBuffer::new(&mut font_system, Metrics::new(20., 20.)).with_rich_text(
+        .spawn((
+            TextEdit,
+            MaxLines(1),
+            MaxChars(16),
+            CosmicEditBuffer::new(&mut font_system, Metrics::new(20., 20.)).with_rich_text(
                 &mut font_system,
                 vec![(account.username.as_str(), attrs)],
                 attrs,
             ),
-
-            ..Default::default()
-        })
+        ))
         .insert(NicknameText)
         .id();
 
     let server_edit = commands
-        .spawn(CosmicEditBundle {
-            default_attrs: DefaultAttrs(AttrsOwned::new(attrs)),
-
-            max_lines: MaxLines(1),
-
-            buffer: CosmicBuffer::new(&mut font_system, Metrics::new(20., 20.)).with_rich_text(
+        .spawn((
+            TextEdit,
+            MaxLines(1),
+            CosmicEditBuffer::new(&mut font_system, Metrics::new(20., 20.)).with_rich_text(
                 &mut font_system,
                 vec![(current_server.address.as_str(), attrs)],
                 attrs,
             ),
-
-            ..Default::default()
-        })
+        ))
         .insert(ServerText)
         .id();
-
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 position_type: PositionType::Absolute,
@@ -145,70 +138,48 @@ pub fn lobby_startup(
                 row_gap: Val::Px(30.0),
                 ..default()
             },
-            background_color: BackgroundColor(Color::srgb_u8(151, 74, 12)),
-            ..default()
-        })
+            BackgroundColor(Color::srgb_u8(151, 74, 12)),
+        ))
         .with_children(|parent| {
             if let Some(reason) = disconnect_reason {
-                parent.spawn(TextBundle {
-                    style: Style {
-                        align_self: AlignSelf::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                    text: Text::from_section(
-                        format!("Got disconnected: {}", reason.why),
-                        TextStyle {
-                            color: Color::Srgba(bevy::color::palettes::tailwind::RED_500),
-                            font_size: 24.0,
-                            ..Default::default()
-                        },
-                    ),
-                    ..default()
-                });
+                parent.spawn((
+                    Text::new(format!("Got disconnected: {}", reason.why)),
+                    TextFont::from_font_size(24.0),
+                    TextColor(Color::Srgba(bevy::color::palettes::tailwind::RED_500)),
+                    TextLayout::new_with_justify(JustifyText::Center),
+                ));
             }
 
             parent
-                .spawn(TextBundle {
-                    style: Style {
-                        align_self: AlignSelf::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                    text: Text::from_section(
-                        "Please insert a server and a nickname",
-                        TextStyle {
-                            font_size: 24.0,
-                            ..Default::default()
-                        },
-                    ),
-                    ..default()
-                })
+                .spawn((
+                    Text::new("Please insert a server and a nickname"),
+                    TextFont::from_font_size(24.0),
+                    TextLayout::new_with_justify(JustifyText::Center),
+                ))
                 .insert(LobbyText);
 
-            let input_style = Style {
+            let input_style = Node {
                 width: Val::Percent(50.0),
                 height: Val::Px(40.0),
                 border: UiRect::all(Val::Px(5.0)),
                 ..default()
             };
 
-            let input_button = ButtonBundle {
-                border_color: BorderColor(Color::BLACK),
-                border_radius: BorderRadius::all(Val::Px(5.0)),
-                style: input_style.clone(),
-                ..default()
-            };
+            // let button_bundle = (
+            //     Button::default(),
+            //     BorderColor(Color::BLACK),
+            //     BorderRadius::all(Val::Px(5.0)),
+            // );
+
+            // parent
+            //     .spawn(input_button.clone())
+            //     .insert(CosmicSource(nickname_edit));
+
+            // parent.spawn(input_button).insert(CosmicSource(server_edit));
 
             parent
-                .spawn(input_button.clone())
-                .insert(CosmicSource(nickname_edit));
-
-            parent.spawn(input_button).insert(CosmicSource(server_edit));
-
-            parent
-                .spawn(ButtonBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         width: Val::Px(120.0),
                         height: Val::Px(40.0),
                         border: UiRect::all(Val::Px(5.0)),
@@ -216,19 +187,15 @@ pub fn lobby_startup(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    border_color: BorderColor(Color::BLACK),
-                    border_radius: BorderRadius::all(Val::Px(5.0)),
-                    background_color: NORMAL_BUTTON.into(),
-                    ..default()
-                })
+                    BorderColor(Color::BLACK),
+                    BorderRadius::all(Val::Px(5.0)),
+                    BackgroundColor(NORMAL_BUTTON.into()),
+                ))
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "JOIN",
-                        TextStyle {
-                            font_size: 16.0,
-                            color: Color::WHITE,
-                            ..Default::default()
-                        },
+                    parent.spawn((
+                        Text::new("JOIN"),
+                        TextFont::from_font_size(16.0),
+                        TextColor(Color::WHITE),
                     ));
                 })
                 .insert(JoinButton);
@@ -324,35 +291,29 @@ fn update_ids(
 ) {
     for _ in evr.read() {
         for input in server_text_query.iter() {
-            let current_text: String = input.editor.with_buffer(|buf| buf.get_text());
+            let current_text: String = input.with_buffer(|buf| buf.lines[0].text().to_string());
             current_server.address = current_text;
         }
 
         for input in nickname_text_query.iter() {
-            let current_text: String = input.editor.with_buffer(|buf| buf.get_text());
+            let current_text: String = input.with_buffer(|buf| buf.lines[0].text().to_string());
             account.username = current_text;
         }
     }
 }
 
-fn update_server_info(
-    mut lobby_text_query: Query<&mut Text, With<LobbyText>>,
-    server_info: Res<ServerInfo>,
-) {
-    for mut text in lobby_text_query.iter_mut() {
-        match *server_info {
-            ServerInfo::Disconnected => {
-                text.sections[0].value = "Please insert a valid server and a nickname".to_string();
-            }
-            ServerInfo::Found {
-                ref description,
-                players,
-                max_players,
-                latency,
-            } => {
-                text.sections[0].value =
-                    format!("{description} - {players}/{max_players} - {latency}ms");
-            }
+fn update_server_info(mut text: Single<&mut Text, With<LobbyText>>, server_info: Res<ServerInfo>) {
+    match *server_info {
+        ServerInfo::Disconnected => {
+            text.0 = "Please insert a valid server and a nickname".to_string();
+        }
+        ServerInfo::Found {
+            ref description,
+            players,
+            max_players,
+            latency,
+        } => {
+            text.0 = format!("{description} - {players}/{max_players} - {latency}ms");
         }
     }
 }
@@ -375,20 +336,20 @@ fn join_handler(
         };
         match *interaction {
             Interaction::Pressed if can_press => {
-                text.sections[0].value = "JOIN".to_string();
+                text.0 = "JOIN".to_string();
                 border_color.0 = Color::Srgba(bevy::color::palettes::tailwind::GREEN_200);
                 app_state.set(AppState::Connecting);
             }
             Interaction::Hovered if can_press => {
-                text.sections[0].value = "join?".to_string();
+                text.0 = "join?".to_string();
                 border_color.0 = Color::Srgba(bevy::color::palettes::tailwind::CYAN_300);
             }
             Interaction::None => {
-                text.sections[0].value = "JOIN".to_string();
+                text.0 = "JOIN".to_string();
                 border_color.0 = Color::BLACK;
             }
             _ => {
-                text.sections[0].value = "can't join :c".to_string();
+                text.0 = "can't join :c".to_string();
                 border_color.0 = Color::Srgba(bevy::color::palettes::tailwind::RED_800);
             }
         }

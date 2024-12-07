@@ -82,7 +82,7 @@ fn movement(
         direction += *transform.down();
     }
 
-    let new_movement = direction.normalize_or_zero() * time.delta_seconds() * 20.0;
+    let new_movement = direction.normalize_or_zero() * time.delta_secs() * 20.0;
     transform.translation += new_movement;
 
     if old_position.distance(transform.translation) > 1.0 {
@@ -98,37 +98,25 @@ fn movement(
 
 fn startup(mut commands: Commands, assets: Res<AssetServer>) {
     let entity = commands
-        .spawn((
-            Player,
-            SpatialBundle {
-                transform: Transform::from_xyz(0.0, 1.0, 0.0),
-                ..default()
-            },
-        ))
+        .spawn((Player, Transform::from_xyz(0.0, 1.0, 0.0)))
         .with_children(|p| {
             p.spawn((
                 WorldModelCamera,
                 WorldLayer,
-                Camera3dBundle {
-                    camera: Camera {
-                        order: 1,
-                        ..default()
-                    },
-                    projection: PerspectiveProjection {
-                        fov: 70.0_f32.to_radians(),
-                        ..default()
-                    }
-                    .into(),
+                Camera3d::default(),
+                Camera {
+                    order: 1,
+                    ..default()
+                },
+                PerspectiveProjection {
+                    fov: 70.0_f32.to_radians(),
                     ..default()
                 },
                 GpuCulling,
                 NoFrustumCulling,
-                MotionBlurBundle {
-                    motion_blur: MotionBlur {
-                        shutter_angle: 1.0,
-                        samples: 2,
-                    },
-                    ..default()
+                MotionBlur {
+                    shutter_angle: 1.0,
+                    samples: 2,
                 },
             ));
         })
@@ -136,21 +124,18 @@ fn startup(mut commands: Commands, assets: Res<AssetServer>) {
 
     commands.insert_resource(PlayerEntity { entity });
     commands.spawn((
-        ImageBundle {
-            image: UiImage {
-                texture: assets.load("ui/aim.png"),
-                ..default()
-            },
-            style: Style {
-                height: Val::Px(16.0),
-                width: Val::Px(16.0),
-                position_type: PositionType::Absolute,
-                top: Val::Percent(50.0),
-                left: Val::Percent(50.0),
-                bottom: Val::Percent(1.0),
-                right: Val::Percent(1.0),
-                ..default()
-            },
+        Node {
+            height: Val::Px(16.0),
+            width: Val::Px(16.0),
+            position_type: PositionType::Absolute,
+            top: Val::Percent(50.0),
+            left: Val::Percent(50.0),
+            bottom: Val::Percent(1.0),
+            right: Val::Percent(1.0),
+            ..default()
+        },
+        ImageNode {
+            image: assets.load("ui/aim.png"),
             ..default()
         },
         Aim,

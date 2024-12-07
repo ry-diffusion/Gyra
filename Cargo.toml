@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "^0.14", features = ["wayland"] }
-bevy-inspector-egui = "0.26.0"
-bevy_cosmic_edit = { version = "0.23.0", features = ["multicam"] }
+bevy = { version = "^0.15", features = ["wayland"] }
+bevy-inspector-egui = "0.28.0"
+bevy_cosmic_edit = { version = "0.26.0", features = ["multicam"], git = "https://github.com/Dimchikkk/bevy_cosmic_edit.git" }
 crossbeam-channel = "0.5.13"
 directories = "5.0.1"
 flate2 = { version = "1.0.33", default-features = false, features = ["zlib-ng"] }

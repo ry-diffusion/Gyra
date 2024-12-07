@@ -5,7 +5,12 @@ use crate::plugin::play::player;
 use crate::plugin::play::player::WorldModelCamera;
 use crate::plugin::play::world::{ActivePlayerChunks, ShownPlayerChunks, WorldChunkData};
 use crate::state::AppState;
+use bevy::color::palettes::tailwind::{
+    BLUE_100, BLUE_200, BLUE_500, CYAN_100, GREEN_100, GREEN_200, PINK_100, PURPLE_100, PURPLE_200,
+    RED_100, RED_200, YELLOW_500,
+};
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+use bevy::log::tracing_subscriber::fmt::writer;
 use bevy::pbr::wireframe::WireframeConfig;
 use bevy::prelude::*;
 use bevy::render::renderer::RenderAdapterInfo;
@@ -26,16 +31,28 @@ struct PositionText;
 struct FpsText;
 
 #[derive(Component)]
-struct RenderText;
+struct VisibleRenderText;
 
 #[derive(Component)]
-struct ChunkText;
+struct AllRenderText;
 
 #[derive(Component)]
-struct CpuText;
+struct ChunkView;
 
 #[derive(Component)]
-struct MemoryUsageText;
+struct PercentUsageText;
+
+#[derive(Component)]
+struct UsedMemoryText;
+
+#[derive(Component)]
+struct FreeMemoryText;
+
+#[derive(Component)]
+struct CpuView;
+
+#[derive(Component)]
+struct MemoryView;
 
 #[derive(Resource)]
 struct DiagnosticsTimer {
@@ -96,7 +113,8 @@ fn get_all_visible_num(vs: &VisibleEntities) -> usize {
 }
 
 fn update_chunk_info(
-    mut text_q: Query<&mut Text, With<ChunkText>>,
+    chunk_view: Single<Entity, With<ChunkView>>,
+    mut writer: TextUiWriter,
     world_data: Option<Res<WorldChunkData>>,
     active_chunks: Option<Res<ActivePlayerChunks>>,
     shown_active_chunks: Option<Res<ShownPlayerChunks>>,
@@ -104,36 +122,39 @@ fn update_chunk_info(
     if let (Some(world_data), Some(active_chunks), Some(shown)) =
         (world_data, active_chunks, shown_active_chunks)
     {
-        let mut text = text_q.single_mut();
-        text.sections[1].value = format!(" mem: {}", world_data.loaded_column.keys().len());
-        text.sections[2].value = format!(" active: {}", active_chunks.chunks.len());
-        text.sections[3].value = format!(" shown: {}", shown.renderized.len());
+        *writer.text(*chunk_view, 1) = format!(" mem: {}", world_data.loaded_column.keys().len());
+        *writer.text(*chunk_view, 2) = format!(" active: {}", active_chunks.chunks.len());
+        *writer.text(*chunk_view, 3) = format!(" shown: {}", shown.renderized.len());
     }
 }
 
 fn update_render_info(
-    mut text_q: Query<&mut Text, With<RenderText>>,
+    mut visible_render: Single<&mut TextSpan, With<VisibleRenderText>>,
+    mut all_render: Single<&mut TextSpan, (With<AllRenderText>, Without<VisibleRenderText>)>,
+
     world_camera: Query<&VisibleEntities, With<WorldModelCamera>>,
     main_camera: Query<&VisibleEntities, With<MainCamera>>,
 ) {
     let main = main_camera.single();
-    let mut text = text_q.single_mut();
-    text.sections[1].value = format!(" main: {}", get_all_visible_num(main));
+    visible_render.0 = format!(" main: {}", get_all_visible_num(main));
 
     if let Ok(world) = world_camera.get_single() {
-        text.sections[2].value = format!(" world: {}", get_all_visible_num(world));
+        all_render.0 = format!(" world: {}", get_all_visible_num(world));
     }
 }
 
-fn update_fps(diagnostics: Res<DiagnosticsStore>, mut fps_text: Query<&mut Text, With<FpsText>>) {
+fn update_fps(
+    diagnostics: Res<DiagnosticsStore>,
+    fps: Single<(&mut TextSpan, &mut TextColor), With<FpsText>>,
+) {
+    let (mut text, mut color) = fps.into_inner();
     if let Some(value) = diagnostics
         .get(&FrameTimeDiagnosticsPlugin::FPS)
         .and_then(|fps| fps.smoothed())
     {
-        let mut fps_text = fps_text.single_mut();
-        fps_text.sections[1].value = format!("{value:>4.0}");
+        text.0 = format!("{value:>4.0}");
 
-        fps_text.sections[1].style.color = if value >= 120.0 {
+        color.0 = if value >= 120.0 {
             // Above 120 FPS, use green color
             Color::srgb(0.0, 1.0, 0.0)
         } else if value >= 60.0 {
@@ -150,132 +171,72 @@ fn update_fps(diagnostics: Res<DiagnosticsStore>, mut fps_text: Query<&mut Text,
 }
 
 fn update_position_data(
-    mut position_text: Query<&mut Text, With<PositionText>>,
+    mut position_text: Single<&mut TextSpan, With<PositionText>>,
     player_transform: Query<&Transform, With<player::Player>>,
 ) {
-    let mut position_text = position_text.single_mut();
-
     let transform = player_transform.single();
     let pos = transform.translation;
     let rot = transform.rotation;
-    position_text.sections[1].value =
-        format!(
-        " map: {:>2.0}/{:>2.0}/{:>2.0}, rot: {:>2.0}/{:>2.0}/{:>2.0}/{:>2.0}, chk: {:>2.0}/{:>2.0}",
-        pos.x, pos.y, pos.z, rot.x, rot.y, rot.z, rot.w,
-        (pos.x / 16.0).floor(), (pos.z / 16.0).floor()
+    position_text.0 = format!(
+        " map: 
+        {:>2.0}/{:>2.0}/{:>2.0}, rot: {:>2.0}/{:>2.0}/{:>2.0}/{:>2.0}, chk: {:>2.0}/{:>2.0}",
+        pos.x,
+        pos.y,
+        pos.z,
+        rot.x,
+        rot.y,
+        rot.z,
+        rot.w,
+        (pos.x / 16.0).floor(),
+        (pos.z / 16.0).floor()
     );
 }
 
 fn spawn(mut commands: Commands, rd: Res<RenderAdapterInfo>) {
     commands
-        .spawn(NodeBundle {
-            background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
-            style: Style {
+        .spawn((
+            Node {
                 max_width: Val::Percent(30.0),
                 max_height: Val::Percent(50.0),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::FlexStart,
+
                 ..default()
             },
-            ..default()
-        })
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+        ))
         .with_children(|p| {
-            p.spawn(TextBundle {
-                text: Text::from_section(
-                    concat!("Gyra v", env!("CARGO_PKG_VERSION")),
-                    TextStyle {
-                        font_size: 20.0,
-                        color: Color::WHITE,
-                        ..default()
-                    },
-                ),
+            p.spawn((
+                Text::new(concat!("GYRA v", env!("CARGO_PKG_VERSION"))),
+                TextFont::from_font_size(20.0),
+            ));
 
-                ..default()
-            });
+            p.spawn((TextLayout::default(), TextFont::from_font_size(16.0)))
+                .with_child(((TextSpan::new("Position"), TextColor(Color::from(GREEN_200))),))
+                .with_child((TextSpan::new(" N/A"), PositionText));
 
-            p.spawn(TextBundle {
-                text: Text::from_sections([
-                    TextSection::new(
-                        "Pos",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::GREEN_200),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            ..default()
-                        },
-                    ),
-                ]),
+            p.spawn((TextLayout::default(), TextFont::from_font_size(16.0)))
+                .with_child(((TextSpan::new("Framerate"), TextColor(Color::from(RED_200))),))
+                .with_child((TextSpan::new(" N/A"), TextColor(GREEN_100.into()), FpsText));
 
-                ..default()
-            })
-            .insert(PositionText);
-
-            p.spawn(TextBundle {
-                text: Text::from_sections([
-                    TextSection::new(
-                        "FPS",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::RED_200),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            ..default()
-                        },
-                    ),
-                ]),
-
-                ..default()
-            })
-            .insert(FpsText);
-            p.spawn(TextBundle {
-                text: Text::from_sections([
-                    TextSection::new(
-                        "Render",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::GREEN_100),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::RED_200),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::YELLOW_500),
-                            ..default()
-                        },
-                    ),
-                ]),
-
-                ..default()
-            })
-            .insert(RenderText);
+            p.spawn((TextLayout::default(), TextFont::from_font_size(16.0)))
+                .with_child(((TextSpan::new("Render"), TextColor(Color::from(GREEN_100))),))
+                .with_child((
+                    TextSpan::new(" *visible*"),
+                    TextColor(RED_200.into()),
+                    VisibleRenderText,
+                ))
+                .with_child((
+                    TextSpan::new(" *all*"),
+                    TextColor(YELLOW_500.into()),
+                    AllRenderText,
+                ));
         })
         .insert(Menu);
 
     commands
-        .spawn(NodeBundle {
-            background_color: BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
-            style: Style {
+        .spawn((
+            Node {
                 max_width: Val::Percent(30.0),
                 max_height: Val::Percent(50.0),
                 position_type: PositionType::Absolute,
@@ -284,166 +245,62 @@ fn spawn(mut commands: Commands, rd: Res<RenderAdapterInfo>) {
                 justify_content: JustifyContent::FlexEnd,
                 ..default()
             },
-            ..default()
-        })
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+        ))
         .with_children(|p| {
-            p.spawn(TextBundle {
-                text: Text::from_sections([
-                    TextSection::new(
-                        "Chunks",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::PINK_100),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::PURPLE_200),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::BLUE_500),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::RED_200),
-                            ..default()
-                        },
-                    ),
-                ]),
+            p.spawn((
+                ChunkView,
+                TextLayout::default(),
+                TextFont::from_font_size(16.0),
+            ))
+            .with_child((TextSpan::new("Chunks"), TextColor(Color::from(PINK_100))))
+            .with_child((TextSpan::new(" [IN MEMORY]"), TextColor(PURPLE_200.into())))
+            .with_child((TextSpan::new(" [ACTIVE]"), TextColor(BLUE_500.into())))
+            .with_child((TextSpan::new(" [SHOWN CHUNKS]"), TextColor(RED_200.into())));
 
-                ..default()
-            })
-            .insert(ChunkText);
+            p.spawn((
+                MemoryView,
+                TextLayout::default(),
+                TextFont::from_font_size(16.0),
+            ))
+            .with_child(((TextSpan::new("Memory"), TextColor(Color::from(PINK_100))),))
+            .with_child((
+                TextSpan::new(" %%"),
+                TextColor(GREEN_200.into()),
+                PercentUsageText,
+            ))
+            .with_child((
+                TextSpan::new(" *used*"),
+                TextColor(GREEN_200.into()),
+                UsedMemoryText,
+            ))
+            .with_child((
+                TextSpan::new(" *free*"),
+                TextColor(BLUE_200.into()),
+                FreeMemoryText,
+            ));
 
-            p.spawn(TextBundle {
-                text: Text::from_sections([
-                    TextSection::new(
-                        "RAM",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::PINK_100),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::GREEN_200),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::GREEN_200),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::BLUE_200),
-                            ..default()
-                        },
-                    ),
-                ]),
+            p.spawn((TextLayout::default(), TextFont::from_font_size(16.0)))
+                .with_child(((TextSpan::new("Graphics"), TextColor(Color::from(BLUE_100))),))
+                .with_child((
+                    TextSpan::new(format!(" {:?} ", rd.backend)),
+                    TextColor(PURPLE_200.into()),
+                ))
+                .with_child((TextSpan::new(rd.name.clone()), TextColor(GREEN_200.into())));
 
-                ..default()
-            })
-            .insert(MemoryUsageText);
-
-            p.spawn(TextBundle {
-                text: Text::from_sections([
-                    TextSection::new(
-                        "GPU",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::BLUE_100),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        format!(" {:?} ", rd.backend),
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::PURPLE_200),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        rd.name.clone(),
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::GREEN_200),
-                            ..default()
-                        },
-                    ),
-                ]),
-
-                ..default()
-            });
-
-            p.spawn(TextBundle {
-                text: Text::from_sections([
-                    TextSection::new(
-                        "CPU",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::PINK_100),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::GREEN_200),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::PURPLE_100),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::CYAN_100),
-                            ..default()
-                        },
-                    ),
-                    TextSection::new(
-                        " N/A",
-                        TextStyle {
-                            font_size: 12.0,
-                            color: Color::from(bevy::color::palettes::tailwind::RED_100),
-                            ..default()
-                        },
-                    ),
-                ]),
-                ..default()
-            })
-            .insert(CpuText);
+            p.spawn((
+                TextLayout::default(),
+                TextFont::from_font_size(16.0),
+                CpuView,
+            ))
+            .with_child(((TextSpan::new("CPU"), TextColor(Color::from(PINK_100))),))
+            .with_child((TextSpan::new(" [compute]"), TextColor(GREEN_200.into())))
+            .with_child((
+                TextSpan::new(" [async compute]"),
+                TextColor(PURPLE_100.into()),
+            ))
+            .with_child((TextSpan::new(" [io]"), TextColor(CYAN_100.into())))
+            .with_child((TextSpan::new(" [main]"), TextColor(RED_100.into())));
         })
         .insert(Menu);
 
@@ -462,8 +319,10 @@ fn debug_screen_handler(
             if is_active.is_some() {
                 *menu = Visibility::Hidden;
                 commands.remove_resource::<DebugScreenActive>();
+                info!("Debug screen deactivated");
             } else {
                 *menu = Visibility::Visible;
+                info!("Debug screen activated");
                 commands.insert_resource(DebugScreenActive);
             }
         }
@@ -476,24 +335,24 @@ fn debug_screen_handler(
 }
 
 fn update_diagnostics_text(
-    mut cpu_q: Query<&mut Text, With<CpuText>>,
-    mut mem_q: Query<&mut Text, (With<MemoryUsageText>, Without<CpuText>)>,
+    cpu: Single<Entity, With<CpuView>>,
+    mem: Single<Entity, With<MemoryView>>,
+
+    mut writer: TextUiWriter,
+
     mut events: EventReader<DiagnosticReport>,
 ) {
-    let mut cpu = cpu_q.single_mut();
-    let mut mem = mem_q.single_mut();
-
     for event in events.read() {
         let percent = (100.0 * event.memory_usage as f32) / event.avaliable_memory as f32;
 
-        cpu.sections[1].value = format!(" C: {:.2}%", event.compute);
-        cpu.sections[2].value = format!(" AC: {:.2}%", event.async_compute);
-        cpu.sections[3].value = format!(" IO: {:.2}%", event.io);
-        cpu.sections[4].value = format!(" M: {:.2}%", event.main);
+        *writer.text(*cpu, 1) = format!(" C: {:.2}%", event.compute);
+        *writer.text(*cpu, 2) = format!(" AC: {:.2}%", event.async_compute);
+        *writer.text(*cpu, 3) = format!(" IO: {:.2}%", event.io);
+        *writer.text(*cpu, 4) = format!(" M: {:.2}%", event.main);
 
-        mem.sections[1].value = format!(" {:.2}%", percent);
-        mem.sections[2].value = format!(" used: {:.2} MB", event.memory_usage / 1024 / 1024);
-        mem.sections[3].value = format!(" free: {:.2} MB", event.avaliable_memory / 1024 / 1024);
+        *writer.text(*mem, 1) = format!(" {:.2}%", percent);
+        *writer.text(*mem, 2) = format!(" used: {:.2} MB", event.memory_usage / 1024 / 1024);
+        *writer.text(*mem, 3) = format!(" free: {:.2} MB", event.avaliable_memory / 1024 / 1024);
     }
 }
 

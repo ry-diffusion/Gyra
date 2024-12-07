@@ -30,54 +30,30 @@ impl Plugin for ConnectingPlugin {
 fn startup(mut commands: Commands, current_server: Res<CurrentServerAddress>) {
     commands.remove_resource::<NetworkTransport>();
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                position_type: PositionType::Absolute,
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::SpaceEvenly,
-                align_items: AlignItems::Center,
-                column_gap: Val::Px(30.0),
-                row_gap: Val::Px(30.0),
-                ..default()
-            },
-            background_color: BackgroundColor(Color::srgb_u8(151, 74, 12)),
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            position_type: PositionType::Absolute,
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::SpaceEvenly,
+            align_items: AlignItems::Center,
+            column_gap: Val::Px(30.0),
+            row_gap: Val::Px(30.0),
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle {
-                style: Style {
-                    align_self: AlignSelf::Center,
-                    justify_content: JustifyContent::Center,
-                    ..default()
-                },
-                text: Text::from_section(
-                    "Get ready! We're connecting to the server...",
-                    TextStyle {
-                        font_size: 24.0,
-                        ..Default::default()
-                    },
-                ),
-                ..default()
-            });
+            parent.spawn((
+                Text::new("Get ready! We're connecting to the server..."),
+                TextLayout::new_with_justify(JustifyText::Center),
+                TextFont::from_font_size(24.0),
+            ));
 
             parent
-                .spawn(TextBundle {
-                    style: Style {
-                        align_self: AlignSelf::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                    text: Text::from_section(
-                        "starting connection..",
-                        TextStyle {
-                            font_size: 16.0,
-                            ..Default::default()
-                        },
-                    ),
-                    ..default()
-                })
+                .spawn((
+                    Text::new("starting connection.."),
+                    TextLayout::new_with_justify(JustifyText::Center),
+                    TextFont::from_font_size(16.0),
+                ))
                 .insert(ProgressText);
         })
         .insert(ConnectingUI);
@@ -87,7 +63,7 @@ fn startup(mut commands: Commands, current_server: Res<CurrentServerAddress>) {
 }
 
 fn update_status(
-    mut query: Query<&mut Text, With<ProgressText>>,
+    mut text: Single<&mut Text, With<ProgressText>>,
     mut receiver: EventReader<ChangedState>,
     mut app_state: ResMut<NextState<AppState>>,
 ) {
@@ -97,8 +73,7 @@ fn update_status(
             return;
         }
 
-        let mut text = query.iter_mut().next().unwrap();
-        text.sections[0].value = state.to.to_string()
+        text.0 = state.to.to_string()
     }
 }
 
