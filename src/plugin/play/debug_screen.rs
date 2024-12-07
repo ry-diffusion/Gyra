@@ -193,14 +193,16 @@ fn update_position_data(
 }
 
 fn spawn(mut commands: Commands, rd: Res<RenderAdapterInfo>) {
+    info!("Debug screen was awakened");
+
     commands
         .spawn((
+            ZIndex(1000),
             Node {
-                max_width: Val::Percent(30.0),
-                max_height: Val::Percent(50.0),
+                // max_width: Val::Percent(30.0),
+                // max_height: Val::Percent(50.0),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::FlexStart,
-
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
@@ -211,31 +213,43 @@ fn spawn(mut commands: Commands, rd: Res<RenderAdapterInfo>) {
                 TextFont::from_font_size(20.0),
             ));
 
-            p.spawn((TextLayout::default(), TextFont::from_font_size(16.0)))
-                .with_child(((TextSpan::new("Position"), TextColor(Color::from(GREEN_200))),))
-                .with_child((TextSpan::new(" N/A"), PositionText));
+            p.spawn((
+                Text::new("Position"),
+                TextColor(GREEN_200.into()),
+                TextFont::from_font_size(16.0),
+            ))
+            .with_child((TextSpan::new(" N/A"), PositionText));
 
-            p.spawn((TextLayout::default(), TextFont::from_font_size(16.0)))
-                .with_child(((TextSpan::new("Framerate"), TextColor(Color::from(RED_200))),))
-                .with_child((TextSpan::new(" N/A"), TextColor(GREEN_100.into()), FpsText));
+            p.spawn((
+                Text::new("Framerate"),
+                TextColor(RED_200.into()),
+                TextLayout::default(),
+                TextFont::from_font_size(16.0),
+            ))
+            .with_child((TextSpan::new(" N/A"), TextColor(GREEN_100.into()), FpsText));
 
-            p.spawn((TextLayout::default(), TextFont::from_font_size(16.0)))
-                .with_child(((TextSpan::new("Render"), TextColor(Color::from(GREEN_100))),))
-                .with_child((
-                    TextSpan::new(" *visible*"),
-                    TextColor(RED_200.into()),
-                    VisibleRenderText,
-                ))
-                .with_child((
-                    TextSpan::new(" *all*"),
-                    TextColor(YELLOW_500.into()),
-                    AllRenderText,
-                ));
+            p.spawn((
+                Text::new("Render"),
+                TextColor(GREEN_100.into()),
+                TextLayout::default(),
+                TextFont::from_font_size(16.0),
+            ))
+            .with_child((
+                TextSpan::new(" *visible*"),
+                TextColor(RED_200.into()),
+                VisibleRenderText,
+            ))
+            .with_child((
+                TextSpan::new(" *all*"),
+                TextColor(YELLOW_500.into()),
+                AllRenderText,
+            ));
         })
         .insert(Menu);
 
     commands
         .spawn((
+            ZIndex(100),
             Node {
                 max_width: Val::Percent(30.0),
                 max_height: Val::Percent(50.0),
@@ -250,10 +264,11 @@ fn spawn(mut commands: Commands, rd: Res<RenderAdapterInfo>) {
         .with_children(|p| {
             p.spawn((
                 ChunkView,
+                Text::new("Chunks"),
+                TextColor(Color::from(PINK_100)),
                 TextLayout::default(),
                 TextFont::from_font_size(16.0),
             ))
-            .with_child((TextSpan::new("Chunks"), TextColor(Color::from(PINK_100))))
             .with_child((TextSpan::new(" [IN MEMORY]"), TextColor(PURPLE_200.into())))
             .with_child((TextSpan::new(" [ACTIVE]"), TextColor(BLUE_500.into())))
             .with_child((TextSpan::new(" [SHOWN CHUNKS]"), TextColor(RED_200.into())));
@@ -261,46 +276,70 @@ fn spawn(mut commands: Commands, rd: Res<RenderAdapterInfo>) {
             p.spawn((
                 MemoryView,
                 TextLayout::default(),
-                TextFont::from_font_size(16.0),
+                TextFont::from_font_size(12.0),
+                Text::new("Memory"),
+                TextColor(PINK_100.into()),
             ))
-            .with_child(((TextSpan::new("Memory"), TextColor(Color::from(PINK_100))),))
             .with_child((
+                TextFont::from_font_size(12.0),
                 TextSpan::new(" %%"),
                 TextColor(GREEN_200.into()),
-                PercentUsageText,
             ))
             .with_child((
+                TextFont::from_font_size(12.0),
                 TextSpan::new(" *used*"),
                 TextColor(GREEN_200.into()),
-                UsedMemoryText,
             ))
             .with_child((
+                TextFont::from_font_size(12.0),
                 TextSpan::new(" *free*"),
                 TextColor(BLUE_200.into()),
-                FreeMemoryText,
             ));
 
-            p.spawn((TextLayout::default(), TextFont::from_font_size(16.0)))
-                .with_child(((TextSpan::new("Graphics"), TextColor(Color::from(BLUE_100))),))
-                .with_child((
-                    TextSpan::new(format!(" {:?} ", rd.backend)),
-                    TextColor(PURPLE_200.into()),
-                ))
-                .with_child((TextSpan::new(rd.name.clone()), TextColor(GREEN_200.into())));
+            p.spawn((
+                Text::new("Graphics"),
+                TextColor(BLUE_100.into()),
+                TextLayout::default(),
+                TextFont::from_font_size(12.0),
+            ))
+            .with_child((
+                TextSpan::new(format!(" {:?} ", rd.backend)),
+                TextColor(PURPLE_200.into()),
+                TextFont::from_font_size(12.0),
+            ))
+            .with_child((
+                TextSpan::new(rd.name.clone()),
+                TextFont::from_font_size(12.0),
+                TextColor(GREEN_200.into()),
+            ));
 
             p.spawn((
-                TextLayout::default(),
-                TextFont::from_font_size(16.0),
+                TextLayout::new_with_justify(JustifyText::Left),
+                TextFont::from_font_size(12.0),
                 CpuView,
+                Text::new("Processor"),
+                TextColor(PINK_100.into()),
             ))
-            .with_child(((TextSpan::new("CPU"), TextColor(Color::from(PINK_100))),))
-            .with_child((TextSpan::new(" [compute]"), TextColor(GREEN_200.into())))
             .with_child((
+                TextFont::from_font_size(12.0),
+                TextSpan::new(" [compute]"),
+                TextColor(GREEN_200.into()),
+            ))
+            .with_child((
+                TextFont::from_font_size(12.0),
                 TextSpan::new(" [async compute]"),
                 TextColor(PURPLE_100.into()),
             ))
-            .with_child((TextSpan::new(" [io]"), TextColor(CYAN_100.into())))
-            .with_child((TextSpan::new(" [main]"), TextColor(RED_100.into())));
+            .with_child((
+                TextFont::from_font_size(12.0),
+                TextSpan::new(" [io]"),
+                TextColor(CYAN_100.into()),
+            ))
+            .with_child((
+                TextFont::from_font_size(12.0),
+                TextSpan::new(" [main]"),
+                TextColor(RED_100.into()),
+            ));
         })
         .insert(Menu);
 
@@ -403,7 +442,7 @@ fn update_diagnostics_values(
                 async_compute.push(proc.cpu_usage());
             } else if name.contains("IO") {
                 io.push(proc.cpu_usage());
-            } else if name.contains("main") {
+            } else if name.contains("gyra") {
                 main.push(proc.cpu_usage());
             }
         }

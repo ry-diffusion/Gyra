@@ -99,32 +99,6 @@ pub fn lobby_startup(
 ) {
     let attrs = Attrs::new().color(bevy::color::palettes::basic::GRAY.to_cosmic());
 
-    let nickname_edit = commands
-        .spawn((
-            TextEdit,
-            MaxLines(1),
-            MaxChars(16),
-            CosmicEditBuffer::new(&mut font_system, Metrics::new(20., 20.)).with_rich_text(
-                &mut font_system,
-                vec![(account.username.as_str(), attrs)],
-                attrs,
-            ),
-        ))
-        .insert(NicknameText)
-        .id();
-
-    let server_edit = commands
-        .spawn((
-            TextEdit,
-            MaxLines(1),
-            CosmicEditBuffer::new(&mut font_system, Metrics::new(20., 20.)).with_rich_text(
-                &mut font_system,
-                vec![(current_server.address.as_str(), attrs)],
-                attrs,
-            ),
-        ))
-        .insert(ServerText)
-        .id();
     commands
         .spawn((
             Node {
@@ -158,27 +132,47 @@ pub fn lobby_startup(
                 ))
                 .insert(LobbyText);
 
-            let input_style = Node {
-                width: Val::Percent(50.0),
-                height: Val::Px(40.0),
-                border: UiRect::all(Val::Px(5.0)),
-                ..default()
-            };
-
-            // let button_bundle = (
-            //     Button::default(),
-            //     BorderColor(Color::BLACK),
-            //     BorderRadius::all(Val::Px(5.0)),
-            // );
-
-            // parent
-            //     .spawn(input_button.clone())
-            //     .insert(CosmicSource(nickname_edit));
-
-            // parent.spawn(input_button).insert(CosmicSource(server_edit));
+            parent
+                .spawn((
+                    TextEdit,
+                    MaxLines(1),
+                    MaxChars(16),
+                    CosmicEditBuffer::new(&mut font_system, Metrics::new(20., 20.)).with_rich_text(
+                        &mut font_system,
+                        vec![(account.username.as_str(), attrs)],
+                        attrs,
+                    ),
+                    Node {
+                        width: Val::Percent(50.0),
+                        height: Val::Px(40.0),
+                        ..default()
+                    },
+                ))
+                .insert(NicknameText);
 
             parent
                 .spawn((
+                    TextEdit,
+                    MaxLines(1),
+                    CosmicEditBuffer::new(&mut font_system, Metrics::new(20., 20.)).with_rich_text(
+                        &mut font_system,
+                        vec![(current_server.address.as_str(), attrs)],
+                        attrs,
+                    ),
+                    Node {
+                        width: Val::Percent(50.0),
+                        height: Val::Px(40.0),
+                        ..default()
+                    },
+                ))
+                .insert(ServerText);
+
+            parent
+                .spawn((
+                    Button::default(),
+                    BorderColor(Color::BLACK),
+                    BorderRadius::all(Val::Px(5.0)),
+                    BackgroundColor(NORMAL_BUTTON.into()),
                     Node {
                         width: Val::Px(120.0),
                         height: Val::Px(40.0),
@@ -187,9 +181,6 @@ pub fn lobby_startup(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BorderColor(Color::BLACK),
-                    BorderRadius::all(Val::Px(5.0)),
-                    BackgroundColor(NORMAL_BUTTON.into()),
                 ))
                 .with_children(|parent| {
                     parent.spawn((
@@ -202,7 +193,6 @@ pub fn lobby_startup(
         })
         .insert(LobbyUI);
 
-    commands.insert_resource(FocusedWidget(Some(server_edit)));
     commands.insert_resource(ServerInfo::Disconnected);
     commands.insert_resource(ServerInfoFetcher::default());
 }

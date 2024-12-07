@@ -118,7 +118,7 @@ fn setup(mut commands: Commands) {
     info!("Welcome to Gyra!");
 
     commands
-        .spawn(Camera2dBundle { ..default() })
+        .spawn(Camera2d)
         .insert(MainCamera)
         .insert(CosmicPrimaryCamera);
 }
