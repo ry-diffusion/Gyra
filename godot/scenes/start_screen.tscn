@@ -1,9 +1,13 @@
-[gd_scene load_steps=8 format=3 uid="uid://b1q8jh3u1hbp0"]
+[gd_scene load_steps=12 format=3 uid="uid://b1q8jh3u1hbp0"]
 
 [ext_resource type="FontFile" uid="uid://b18wr5avl8f21" path="res://fonts/SUSE/static/SUSE-Regular.ttf" id="1_vndrr"]
 [ext_resource type="FontFile" uid="uid://6f3kqcajsano" path="res://fonts/SUSE/static/SUSE-Medium.ttf" id="2_kmk3b"]
+[ext_resource type="Script" path="res://scripts/start/setup.gd" id="2_vtwh0"]
+[ext_resource type="FontFile" uid="uid://d4idei4qu0sv5" path="res://fonts/SUSE/static/SUSE-Light.ttf" id="3_jrebp"]
 [ext_resource type="FontFile" uid="uid://f3l5vxlfoym0" path="res://fonts/SUSE/static/SUSE-Bold.ttf" id="3_tsjtv"]
 [ext_resource type="Script" path="res://scripts/start/details.gd" id="4_1oaec"]
+[ext_resource type="FontFile" uid="uid://drjyhu5rj814" path="res://fonts/SUSE/static/SUSE-Thin.ttf" id="4_ek43p"]
+[ext_resource type="FontFile" uid="uid://clpofj2si42f0" path="res://fonts/SUSE/static/SUSE-SemiBold.ttf" id="6_i4lhm"]
 
 [sub_resource type="Gradient" id="Gradient_babyu"]
 offsets = PackedFloat32Array(0, 0.668831, 1)
@@ -69,50 +73,72 @@ theme_override_constants/margin_left = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 0
 
-[node name="Credentials" type="VBoxContainer" parent="Server Settings/VBoxContainer/CredsCon"]
+[node name="Setup" type="VBoxContainer" parent="Server Settings/VBoxContainer/CredsCon"]
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 size_flags_vertical = 6
 theme_override_constants/separation = 30
 alignment = 1
+script = ExtResource("2_vtwh0")
 
-[node name="Username" type="LineEdit" parent="Server Settings/VBoxContainer/CredsCon/Credentials"]
+[node name="Status" type="RichTextLabel" parent="Server Settings/VBoxContainer/CredsCon/Setup"]
+layout_mode = 2
+size_flags_vertical = 6
+theme_override_fonts/normal_font = ExtResource("3_jrebp")
+theme_override_fonts/italics_font = ExtResource("4_ek43p")
+theme_override_fonts/bold_italics_font = ExtResource("3_tsjtv")
+theme_override_fonts/bold_font = ExtResource("6_i4lhm")
+bbcode_enabled = true
+text = "[center]Please Insert a valid address.[/center]"
+fit_content = true
+scroll_following = true
+autowrap_mode = 1
+threaded = true
+
+[node name="Username" type="LineEdit" parent="Server Settings/VBoxContainer/CredsCon/Setup"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_kmk3b")
 text = "GyraPlayer"
 alignment = 1
 max_length = 16
 
-[node name="Server" type="LineEdit" parent="Server Settings/VBoxContainer/CredsCon/Credentials"]
+[node name="Server" type="LineEdit" parent="Server Settings/VBoxContainer/CredsCon/Setup"]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_kmk3b")
 text = "localhost"
 alignment = 1
 
-[node name="Play" type="Button" parent="Server Settings/VBoxContainer/CredsCon/Credentials"]
+[node name="Play" type="Button" parent="Server Settings/VBoxContainer/CredsCon/Setup"]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 10
 theme_override_fonts/font = ExtResource("3_tsjtv")
 text = "PLAY"
 
-[node name="MarginContainer" type="MarginContainer" parent="."]
-layout_mode = 2
-offset_left = 498.0
-offset_top = 608.0
-offset_right = 654.0
-offset_bottom = 648.0
+[node name="Details Container" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -88.0
+offset_top = -53.0
+offset_right = 88.0
+grow_horizontal = 2
+grow_vertical = 0
 theme_override_constants/margin_bottom = 30
 
-[node name="Panel" type="PanelContainer" parent="MarginContainer"]
+[node name="Panel" type="PanelContainer" parent="Details Container"]
 layout_mode = 2
 
-[node name="Details" type="MarginContainer" parent="MarginContainer/Panel"]
+[node name="Details" type="MarginContainer" parent="Details Container/Panel"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_right = 10
 script = ExtResource("4_1oaec")
 
-[node name="CurrentGPU" type="Label" parent="MarginContainer/Panel/Details"]
+[node name="CurrentGPU" type="Label" parent="Details Container/Panel/Details"]
 layout_mode = 2
+size_flags_vertical = 8
 text = "Current GPU: XXXXX"

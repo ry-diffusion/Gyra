@@ -1,0 +1,10 @@
+[package]
+name = "gyra-proto"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+flate2 = "1.0.35"
+gyra-codec = { version = "0.1.0", path = "../gyra-codec" }
+gyra-macros = { version = "0.1.0", path = "../gyra-macros" }
+log = "0.4.22"

@@ -1,0 +1,18 @@
+[package]
+name = "gyra-net"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gyra-codec = { version = "0.1.0", path = "../gyra-codec" }
+gyra-proto = { version = "0.1.0", path = "../gyra-proto" }
+hickory-resolver = { version = "0.24.1", default-features = false, features = [
+    "tokio-runtime",
+] }
+flate2 = { version = "1.0.33", default-features = false, features = [
+    "zlib-ng",
+] }
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
+thiserror = "1.0.63"
+log = "0.4.22"

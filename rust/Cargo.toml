@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-godot = "0.2.2"
+godot = { version = "0.2.2", features = ["experimental-threads"] }
+gyra-net = { version = "0.1.0", path = "../gyra-net" }
 
 [lib]
 crate-type = ["cdylib"]
