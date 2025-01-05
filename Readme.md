@@ -7,8 +7,6 @@
 ## Deps
 - Godot (4.3)
 
-
-
 ## Setup
 Copy godot 4.3 to `bin`
 
