@@ -322,6 +322,7 @@ version = "0.1.0"
 dependencies = [
  "godot",
  "gyra-net",
+ "log",
 ]
 
 [[package]]

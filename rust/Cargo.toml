@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 godot = { version = "0.2.2", features = ["experimental-threads"] }
 gyra-net = { version = "0.1.0", path = "../gyra-net" }
+log = "0.4.22"
 
 [lib]
 crate-type = ["cdylib"]

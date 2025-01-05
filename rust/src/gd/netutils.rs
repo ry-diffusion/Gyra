@@ -13,7 +13,7 @@ struct NetUtils;
 #[godot_api]
 impl NetUtils {
     #[func]
-    fn query_server_info(address: String) -> Dictionary {
+    fn query_server_info(address: String) -> GdResult {
         let result = fetch_status_of(address);
         match result {
             Ok(server_info) => GdResult::ok(dict! {
