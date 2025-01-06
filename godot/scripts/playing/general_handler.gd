@@ -9,4 +9,5 @@ func _ready() -> void:
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(_delta: float) -> void:
 	var result = GyraSingleton.poll_play()
+	
 	print(result)

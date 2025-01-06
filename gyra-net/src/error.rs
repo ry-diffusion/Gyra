@@ -13,3 +13,13 @@ pub enum Error {
     #[error("Unexpected packet")]
     UnexpectedPacket,
 }
+
+impl Error {
+    pub fn is_eagain(&self) -> bool {
+        match self {
+            Error::Io(e) => e.kind() == std::io::ErrorKind::WouldBlock,
+            Error::Codec(e) if e.is_eagain() => true,
+            _ => false,
+        }
+    }
+}

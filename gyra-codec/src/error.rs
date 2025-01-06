@@ -30,4 +30,13 @@ pub enum CodecError {
     IllegalPacket(PacketId, When),
 }
 
+impl CodecError {
+    pub fn is_eagain(&self) -> bool {
+        match self {
+            CodecError::Io(e) => e.kind() == std::io::ErrorKind::WouldBlock,
+            _ => false,
+        }
+    }
+}
+
 pub type Result<T> = std::result::Result<T, CodecError>;

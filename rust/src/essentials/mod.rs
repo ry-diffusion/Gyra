@@ -1,4 +1,7 @@
+pub mod error;
 pub mod logger;
+pub mod gd;
+
 use godot::{
     builtin::{Dictionary, Variant, dict},
     meta::{FromGodot, GodotConvert, ToGodot},
@@ -17,13 +20,6 @@ pub struct GdResult {
 }
 
 impl GdResult {
-    // pub fn ok<T: ToGodot>(value: T) -> Dictionary {
-    //     dict! {
-    //         "error": Variant::nil(),
-    //         "data": value.to_variant(),
-    //     }
-    // }
-
     pub fn ok<T: ToGodot>(value: T) -> GdResult {
         GdResult {
             error: Variant::nil(),

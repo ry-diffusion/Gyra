@@ -1,8 +1,15 @@
+#![feature(portable_simd)]
+
 use essentials::logger;
 use godot::{classes::Engine, prelude::*};
 pub mod essentials;
 pub mod game;
 pub mod gd;
+pub mod math;
+pub mod player;
+pub mod world;
+
+pub type Result<T> = std::result::Result<T, essentials::error::Error>;
 
 struct GyraLibrary;
 

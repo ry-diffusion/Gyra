@@ -4,3 +4,7 @@ pub use join_game::*;
 pub use keep_alive::*;
 pub mod chunk_data;
 pub use chunk_data::*;
+pub mod player_sync;
+pub use player_sync::*;
+pub mod plugin;
+pub use plugin::*;

@@ -21,8 +21,11 @@ func _process(delta: float) -> void:
 		has_errored = true
 	
 	var status = result.get("data")
+	
+	if status == "gpoll_ok":
+		GyraSingleton.switch_to_play_state()
+	
 	if status == "can_play":
-		GyraSingleton.to_play_state()
 		get_tree().change_scene_to_file("res://scenes/playing.tscn")
 func _goBack():
 	GyraSingleton.reset_connection()
