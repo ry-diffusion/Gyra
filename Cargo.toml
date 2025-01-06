@@ -1,0 +1,3 @@
+[workspace]
+resolver = "3"
+members = ["rust", "gyra-codec", "gyra-proto", "gyra-net", "gyra-macros"]

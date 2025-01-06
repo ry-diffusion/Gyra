@@ -9,4 +9,7 @@ pub enum Error {
 
     #[error("Unable to parse JSON: {0}")]
     JsonParseError(#[from] serde_json::Error),
+
+    #[error("Unexpected packet")]
+    UnexpectedPacket,
 }

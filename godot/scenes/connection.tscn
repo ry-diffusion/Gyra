@@ -1,0 +1,125 @@
+[gd_scene load_steps=7 format=3 uid="uid://svtx0gxagdxt"]
+
+[ext_resource type="Script" path="res://scripts/connection/connection_handler.gd" id="1_plpwd"]
+[ext_resource type="FontFile" uid="uid://6f3kqcajsano" path="res://fonts/SUSE/static/SUSE-Medium.ttf" id="1_qkwfk"]
+[ext_resource type="Script" path="res://scripts/connection/connection_status.gd" id="2_i6ex6"]
+
+[sub_resource type="Gradient" id="Gradient_babyu"]
+offsets = PackedFloat32Array(0, 0.668831, 1)
+colors = PackedColorArray(0.900916, 0.647199, 0.91348, 1, 0.364025, 0.729731, 0.407708, 1, 0.389429, 0.597229, 0.594061, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_xjm1x"]
+gradient = SubResource("Gradient_babyu")
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_quh2c"]
+bg_color = Color(0.624231, 0, 0.288447, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+corner_detail = 20
+
+[node name="Root" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_plpwd")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("GradientTexture1D_xjm1x")
+metadata/_edit_lock_ = true
+
+[node name="Panel" type="Panel" parent="."]
+custom_minimum_size = Vector2(500, 30)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+metadata/_edit_use_anchors_ = true
+
+[node name="ConnectionStatus" type="RichTextLabel" parent="Panel/MarginContainer"]
+layout_mode = 2
+theme_override_fonts/normal_font = ExtResource("1_qkwfk")
+bbcode_enabled = true
+text = "[center]Connecting to the server..[/center]"
+fit_content = true
+script = ExtResource("2_i6ex6")
+
+[node name="ErrorWindow" type="Panel" parent="."]
+unique_name_in_owner = true
+auto_translate_mode = 1
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -100.0
+offset_right = 250.0
+offset_bottom = 100.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_quh2c")
+
+[node name="Contents" type="MarginContainer" parent="ErrorWindow"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -29.0
+offset_right = 250.0
+offset_bottom = 29.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+
+[node name="Elements" type="VBoxContainer" parent="ErrorWindow/Contents"]
+layout_mode = 2
+
+[node name="Details" type="RichTextLabel" parent="ErrorWindow/Contents/Elements"]
+layout_mode = 2
+bbcode_enabled = true
+text = "[center]Failed to connect to server :c"
+fit_content = true
+scroll_following = true
+context_menu_enabled = true
+
+[node name="Confirm" type="Button" parent="ErrorWindow/Contents/Elements"]
+layout_mode = 2
+size_flags_vertical = 4
+text = "Go Back"

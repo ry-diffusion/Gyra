@@ -9,12 +9,12 @@
 [ext_resource type="FontFile" uid="uid://drjyhu5rj814" path="res://fonts/SUSE/static/SUSE-Thin.ttf" id="4_ek43p"]
 [ext_resource type="FontFile" uid="uid://clpofj2si42f0" path="res://fonts/SUSE/static/SUSE-SemiBold.ttf" id="6_i4lhm"]
 
-[sub_resource type="Gradient" id="Gradient_babyu"]
+[sub_resource type="Gradient" id="Gradient_k2q2q"]
 offsets = PackedFloat32Array(0, 0.668831, 1)
 colors = PackedColorArray(0.900916, 0.647199, 0.91348, 1, 0.364025, 0.729731, 0.407708, 1, 0.389429, 0.597229, 0.594061, 1)
 
 [sub_resource type="GradientTexture1D" id="GradientTexture1D_p5xg8"]
-gradient = SubResource("Gradient_babyu")
+gradient = SubResource("Gradient_k2q2q")
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ity8w"]
 bg_color = Color(0.105882, 0.101961, 0.0901961, 0.482353)
@@ -26,8 +26,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+metadata/_edit_lock_ = true
 
-[node name="TextureRect" type="TextureRect" parent="."]
+[node name="Background" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -35,6 +36,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 texture = SubResource("GradientTexture1D_p5xg8")
+metadata/_edit_lock_ = true
 
 [node name="Server Settings" type="Panel" parent="."]
 custom_minimum_size = Vector2(200, 0)
@@ -44,6 +46,7 @@ anchor_bottom = 1.0
 grow_vertical = 2
 size_flags_horizontal = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_ity8w")
+metadata/_edit_lock_ = true
 
 [node name="VBoxContainer" type="VBoxContainer" parent="Server Settings"]
 layout_mode = 1
@@ -142,3 +145,26 @@ script = ExtResource("4_1oaec")
 layout_mode = 2
 size_flags_vertical = 8
 text = "Current GPU: XXXXX"
+
+[node name="ErrorWindow" type="AcceptDialog" parent="."]
+unique_name_in_owner = true
+title = "Unable to connect into server"
+initial_position = 1
+size = Vector2i(300, 300)
+popup_window = true
+
+[node name="FailedToConnectDetails" type="RichTextLabel" parent="ErrorWindow"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -49.0
+grow_horizontal = 2
+grow_vertical = 2
+bbcode_enabled = true
+text = "Failed to connect to server :c"
+fit_content = true
+scroll_following = true
+context_menu_enabled = true

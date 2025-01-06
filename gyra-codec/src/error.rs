@@ -16,6 +16,9 @@ pub enum CodecError {
     #[error("UTF-8 error: {0}")]
     Utf8(#[from] std::string::FromUtf8Error),
 
+    #[error("Can't parse nbt {0}")]
+    CantParseNbt(#[from] fastnbt::error::Error),
+
     #[error("Can't parse field {field}: {source}")]
     CantParseField {
         field: String,

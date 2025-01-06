@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+fastnbt = "2.5.0"
 flate2 = "1.0.35"
 gyra-codec = { version = "0.1.0", path = "../gyra-codec" }
 gyra-macros = { version = "0.1.0", path = "../gyra-macros" }
 log = "0.4.22"
+serde = { version = "1.0.217", features = ["derive"] }

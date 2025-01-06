@@ -1,6 +1,7 @@
-use std::net::Shutdown;
+use std::{mem::replace, net::Shutdown};
 
 use godot::prelude::*;
+use gyra_net::codec::packet::When;
 
 use crate::{essentials::GdResult, game::NetworkGame};
 
@@ -61,9 +62,35 @@ impl Gyra {
             return GdResult::err("The game is not in the logging state");
         };
 
+        if game.transport_state() == When::Play {
+            return GdResult::ok("can_play");
+        }
+
         match game.poll_login() {
-            Ok(_) => GdResult::ok("Log ok"),
+            Ok(_) => GdResult::ok("poll_ok"),
             Err(e) => GdResult::err(e.to_string()),
+        }
+    }
+
+    #[func]
+    pub fn poll_play(&mut self) -> GdResult {
+        let GameState::Playing { game } = &mut self.state else {
+            return GdResult::err("The game is not in the playing state");
+        };
+
+        match game.poll_play() {
+            Ok(_) => GdResult::ok("poll_ok"),
+            Err(e) => GdResult::err(e.to_string()),
+        }
+    }
+
+    #[func]
+    pub fn to_play_state(&mut self) -> GdResult {
+        if let GameState::Logging { game, .. } = replace(&mut self.state, GameState::MainMenu) {
+            self.state = GameState::Playing { game };
+            GdResult::ok("Switched to play state")
+        } else {
+            GdResult::err("The game is not in the logging state")
         }
     }
 

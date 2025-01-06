@@ -2,6 +2,7 @@ extends VBoxContainer
 
 @onready var status: RichTextLabel = $Status
 @onready var textBuffer = ""
+
 var threads = []
 
 func _ready() -> void:
@@ -15,6 +16,18 @@ func _ready() -> void:
 func _onPlayPressed() -> void:
 	var username = $Username.text
 	var server = $Server.text
+	
+	GyraSingleton.set_player_name(username)
+	var result = GyraSingleton.connect_to(server)
+	
+	if result.get("error"):
+		%ErrorWindow.show()
+		%ErrorWindow/FailedToConnectDetails.text = "Why? " + result.get("error")
+		return
+	
+	get_tree().change_scene_to_file("res://scenes/connection.tscn")
+		
+
 
 func _onServerTextChanged(text: String) -> void:
 	if text == "":
@@ -54,8 +67,6 @@ func _checkServer(server: String) -> void:
 		textBuffer = "[center]%s\n" % description_text
 		textBuffer += "Players: %s/%s\n" % [players.get("online"), players.get("max")]
 		textBuffer += "Latency: %s[/center]" % _colorize_ping(latency)
-
-
 	call_deferred("_updateRichText")
 
 func _updateRichText() -> void:
@@ -71,4 +82,5 @@ func _process(_delta: float) -> void:
 		if not thread.is_alive():
 			thread.wait_to_finish()
 			threads.remove_at(i)
+			
 			break

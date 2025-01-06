@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3 uid="uid://ceatk1aabqt5l"]
+
+[ext_resource type="Script" path="res://scripts/playing/general_handler.gd" id="1_osyih"]
+[ext_resource type="Environment" uid="uid://um5vkt8hkom" path="res://scenes/playing/overworld enviroment.tres" id="1_owo1g"]
+
+[node name="Root" type="Node3D"]
+script = ExtResource("1_osyih")
+
+[node name="UI" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("1_owo1g")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+current = true
