@@ -1,4 +1,5 @@
 use gyra_net::proto::Protocol;
+use gyra_net::proto::play::ServerKeepAlive;
 use gyra_net::transport::Transport;
 use gyra_net::{codec::packet::When, proto::play::ClientKeepAlive};
 use log::{info, warn};
@@ -26,9 +27,14 @@ impl NetworkGame {
                 Ok(())
             }
 
-            Protocol::ServerKeepAlive(packet) => {
+            Protocol::ChunkData(packet) => {
+                info!("Received chunk data: {:?}", packet);
+                Ok(())
+            }
+
+            Protocol::ClientKeepAlive(packet) => {
                 info!("Received keep alive packet: {:?}", packet);
-                let protocol = Protocol::ClientKeepAlive(ClientKeepAlive { id: packet.id });
+                let protocol = Protocol::ServerKeepAlive(ServerKeepAlive { id: packet.id });
 
                 protocol.put(
                     &mut self.transport.stream,

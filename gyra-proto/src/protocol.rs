@@ -50,4 +50,4 @@ macro_rules! generate {
     };
 }
 
-generate!(Protocol: Handshake, LoginStart, LoginSuccess, StatusResponse, SetCompression, ClientKeepAlive, ServerKeepAlive, JoinGame);
+generate!(Protocol: Handshake, LoginStart, LoginSuccess, StatusResponse, SetCompression, ClientKeepAlive, ServerKeepAlive, JoinGame, ChunkData);
