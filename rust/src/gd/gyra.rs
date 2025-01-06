@@ -4,7 +4,7 @@ use crate::{
     essentials::GdResult,
     game::{GameState, NetworkGame},
 };
-use godot::classes::Engine;
+use godot::classes::{CsgBox3D, Engine, MeshInstance3D};
 use godot::prelude::*;
 use gyra_net::codec::packet::When;
 use std::collections::VecDeque;
@@ -130,6 +130,22 @@ impl Gyra {
 
                 Ok(())
             }
+
+            Action::ShowChunks {chunks} => {
+                for (pos, data) in chunks.iter() {
+                    let chk_x = pos.x;
+                    let chk_z = pos.z;
+
+                    self.base_mut().emit_signal("show_chunks", &[
+                        data.to_variant(),
+                        chk_x.to_variant(),
+                        chk_z.to_variant(),
+                    ]);
+                }
+
+                Ok(())
+            }
+
             _ => Ok(()),
         }
     }
@@ -225,4 +241,7 @@ impl Gyra {
 
     #[signal]
     pub fn player_position_sync(&self, pos: Vector3, yaw: f32, pitch: f32);
+
+    #[signal]
+    pub fn show_chunks(&self, chunks: Vec<Gd<MeshInstance3D>>, chk_x: i32, chk_z: i32);
 }

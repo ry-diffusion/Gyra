@@ -11,6 +11,8 @@ func _process(delta: float) -> void:
 	if has_errored:
 		return
 		
+
+		
 	var result = GyraSingleton.poll_login()
 	var error = result.get("error")
 	if error:

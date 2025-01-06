@@ -1,3 +1,4 @@
+use glam::IVec3;
 use gyra_net::proto::pallete_delta::{Pallete, PalleteChunk};
 
 pub struct BlockState {
@@ -48,7 +49,7 @@ impl Chunk {
         ((packed >> bit_position) & mask) as usize
     }
 
-    pub fn from_pallete_chunk(chunk: PalleteChunk) -> Self {
+    pub fn from_palette_chunk(chunk: PalleteChunk) -> Self {
         let mut sections = Vec::new();
 
         for remote_section in chunk.data {
@@ -89,4 +90,13 @@ impl Chunk {
 
         Self { sections }
     }
+}
+
+
+pub fn index_to_coords(index: usize) -> IVec3 {
+    let x = index & 0xF;
+    let y = (index >> 4) & 0xF;
+    let z = (index >> 8) & 0xF;
+
+    IVec3::new(x as i32, y as i32, z as i32)
 }

@@ -1,5 +1,5 @@
 bin/*.exe
 
 target/
-
-.godot
+.godot/
+!.godot/extension_list.cfg

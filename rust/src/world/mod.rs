@@ -27,7 +27,7 @@ impl World {
             remote.primary_bit_mask.0 as _,
         )?;
 
-        self.chunks.insert(pos, Chunk::from_pallete_chunk(chunk));
+        self.chunks.insert(pos, Chunk::from_palette_chunk(chunk));
 
         Ok(())
     }

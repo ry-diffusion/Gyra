@@ -1,16 +1,27 @@
+use crate::math::ChunkPos;
+use crate::player::Player;
+use crate::world::World;
+use crate::world::chunk::index_to_coords;
 use glam::{Vec3A, vec3a};
+use godot::builtin::Vector3;
+use godot::classes::{BoxMesh, CsgBox3D, MeshInstance3D};
+use godot::obj::{Gd, NewAlloc, NewGd};
 use gyra_net::proto::Protocol;
-use gyra_net::proto::pallete_delta::PalleteChunk;
-use gyra_net::proto::play::ServerKeepAlive;
 use gyra_net::transport::Transport;
 use gyra_net::{codec::packet::When, proto::play::ClientKeepAlive};
 use log::{info, warn};
-
-use crate::player::Player;
-use crate::world::World;
+use std::collections::{HashMap, HashSet};
 
 pub enum Action {
-    SyncPlayerPosition { pos: Vec3A, yaw: f32, pitch: f32 },
+    SyncPlayerPosition {
+        pos: Vec3A,
+        yaw: f32,
+        pitch: f32,
+    },
+
+    ShowChunks {
+        chunks: HashMap<ChunkPos, Vec<Gd<MeshInstance3D>>>,
+    },
 
     Noop,
 }
@@ -24,6 +35,7 @@ pub struct NetworkGame {
     pub transport: Transport,
     pub state: GameState,
     pub player: Player,
+    pub built_chunks: HashSet<ChunkPos>,
 }
 
 impl NetworkGame {
@@ -31,12 +43,58 @@ impl NetworkGame {
         Ok(NetworkGame {
             transport: Transport::connect(addr)?,
             state: GameState::LoggingIn,
+            built_chunks: HashSet::new(),
             player: Player {
                 pitch: 0.0,
                 yaw: 0.0,
                 position: Default::default(),
             },
         })
+    }
+
+    pub fn build_cubes(&mut self) -> HashMap<ChunkPos, Vec<Gd<MeshInstance3D>>> {
+        let world = match &self.state {
+            GameState::InGame { world } => world,
+            _ => return HashMap::new(),
+        };
+
+        
+        let mut cubes = HashMap::new();
+
+        for (pos, chunk) in &world.chunks {
+            if self.built_chunks.contains(pos) {
+                continue;
+            }
+            
+            self.built_chunks.insert(*pos);
+            let cubes_entry = cubes.entry(*pos).or_insert_with(|| Vec::new());
+
+            for (section_idx, section) in chunk.sections.iter().enumerate() {
+                for (idx, block) in section.blocks.iter().enumerate() {
+                    if block.is_air() {
+                        continue;
+                    }
+                    let block_idx = index_to_coords(idx);
+                    let world_pos = pos.to_world_pos();
+
+                    let block_pos = Vector3::new(
+                        world_pos.x as f32 + block_idx.x as f32,
+                        section_idx as f32 * 16.0 + section_idx as f32,
+                        world_pos.z as f32 + block_idx.z as f32,
+                    );
+
+                    let mut cube_mesh = BoxMesh::new_gd();
+                    let mut mesh_instance = MeshInstance3D::new_alloc();
+                    cube_mesh.set_size(Vector3::new(1.0, 1.0, 1.0));
+                    mesh_instance.set_mesh(&cube_mesh);
+                    
+                    mesh_instance.set_position(block_pos);
+                    cubes_entry.push(mesh_instance);
+                }
+            }
+        }
+
+        cubes
     }
 
     pub fn transport_state(&self) -> When {
@@ -90,7 +148,9 @@ impl NetworkGame {
                         warn!("Received chunk data packet while not in game state");
                     }
                 }
-                Ok(Action::Noop)
+                Ok(Action::ShowChunks {
+                    chunks: self.build_cubes(),
+                })
             }
 
             Protocol::ServerKeepAlive(packet) => {
